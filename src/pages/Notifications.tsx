@@ -26,33 +26,35 @@ export default function Notifications() {
   const [message, setMessage] = useState("");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Notifications Center</h1>
-        <p className="text-muted-foreground">Send notifications and view system alerts</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Notifications Center</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Send notifications and view system alerts</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         {/* Send Notifications */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Send Notification</h2>
-          <div className="rounded-lg border bg-card p-5 card-shadow">
+          <h2 className="text-base sm:text-lg font-semibold text-foreground">Send Notification</h2>
+          <div className="rounded-lg border bg-card p-4 sm:p-5 card-shadow">
             <div className="space-y-4">
               <div>
                 <p className="mb-2 text-sm font-medium text-foreground">Recipients</p>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={recipient === "doctors" ? "default" : "outline"}
                     onClick={() => setRecipient("doctors")}
-                    className="flex-1"
+                    size="sm"
+                    className="w-full sm:text-sm"
                   >
                     Doctors
                   </Button>
                   <Button
                     variant={recipient === "patients" ? "default" : "outline"}
                     onClick={() => setRecipient("patients")}
-                    className="flex-1"
+                    size="sm"
+                    className="w-full sm:text-sm"
                   >
                     Patients
                   </Button>
@@ -64,10 +66,11 @@ export default function Notifications() {
                   placeholder="Type your notification message..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  rows={4}
+                  rows={3}
+                  className="text-sm"
                 />
               </div>
-              <Button className="w-full gap-2">
+              <Button className="w-full gap-2" size="sm">
                 <Send className="h-4 w-4" />
                 Send Notification
               </Button>
@@ -75,7 +78,7 @@ export default function Notifications() {
           </div>
 
           {/* Quick Templates */}
-          <div className="rounded-lg border bg-card p-5 card-shadow">
+          <div className="rounded-lg border bg-card p-4 sm:p-5 card-shadow">
             <p className="mb-3 text-sm font-medium text-foreground">Quick Templates</p>
             <div className="space-y-2">
               {[
@@ -88,7 +91,7 @@ export default function Notifications() {
                   key={index}
                   variant="outline"
                   size="sm"
-                  className="w-full justify-start text-left"
+                  className="w-full justify-start text-left h-auto py-2 text-xs sm:text-sm whitespace-normal"
                   onClick={() => setMessage(template)}
                 >
                   {template}
@@ -101,32 +104,32 @@ export default function Notifications() {
         {/* System Alerts */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">System Alerts</h2>
-            <Badge variant="secondary">{systemAlerts.length} alerts</Badge>
+            <h2 className="text-base sm:text-lg font-semibold text-foreground">System Alerts</h2>
+            <Badge variant="secondary" className="text-xs">{systemAlerts.length} alerts</Badge>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {systemAlerts.map((alert, index) => {
               const style = severityStyles[alert.severity as keyof typeof severityStyles];
               return (
                 <div
                   key={alert.id}
                   className={cn(
-                    "rounded-lg border p-4 card-shadow animate-slide-up",
+                    "rounded-lg border p-3 sm:p-4 card-shadow animate-slide-up",
                     style.bg,
                     style.border
                   )}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <div className="flex items-start gap-3">
-                    <alert.icon className={cn("h-5 w-5 mt-0.5", style.icon)} />
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">{alert.message}</p>
-                      <p className="text-sm text-muted-foreground">{alert.time}</p>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <alert.icon className={cn("h-4 w-4 sm:h-5 sm:w-5 mt-0.5 flex-shrink-0", style.icon)} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground text-sm sm:text-base leading-tight">{alert.message}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">{alert.time}</p>
                     </div>
                     <Badge
                       variant="outline"
                       className={cn(
-                        "capitalize border",
+                        "capitalize border text-[10px] sm:text-xs flex-shrink-0",
                         alert.severity === "critical" && "bg-destructive/20 text-destructive border-destructive/30",
                         alert.severity === "error" && "bg-destructive/20 text-destructive border-destructive/30",
                         alert.severity === "warning" && "bg-warning/20 text-warning border-warning/30",
