@@ -49,7 +49,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
                 <Activity className="h-5 w-5 text-secondary-foreground" />
               </div>
-              <span className="text-lg font-semibold text-sidebar-foreground">MedAdmin</span>
+              <span className="text-sm font-semibold text-sidebar-foreground leading-tight">Self Learning<br/>Medical Analysis</span>
             </div>
           )}
           <Button
