@@ -1,24 +1,28 @@
 import { useState } from "react";
-import { Palette, FileType, Brain, Settings2, Sliders } from "lucide-react";
+import { Palette, FileType, Brain, Settings2, Sliders, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/use-theme";
+import { toast } from "@/hooks/use-toast";
 
-const colorThemes = [
-  { name: "Blue", color: "hsl(204, 70%, 53%)" },
-  { name: "Green", color: "hsl(145, 63%, 42%)" },
-  { name: "Purple", color: "hsl(280, 60%, 50%)" },
-  { name: "Orange", color: "hsl(36, 100%, 50%)" },
+type AccentColor = "blue" | "green" | "purple" | "orange";
+
+const colorThemes: { name: string; color: string; value: AccentColor }[] = [
+  { name: "Blue", color: "hsl(204, 70%, 53%)", value: "blue" },
+  { name: "Green", color: "hsl(145, 63%, 42%)", value: "green" },
+  { name: "Purple", color: "hsl(280, 60%, 50%)", value: "purple" },
+  { name: "Orange", color: "hsl(36, 100%, 50%)", value: "orange" },
 ];
 
 const fileFormats = ["PDF", "JPG", "PNG", "TIFF", "DICOM"];
 
 export default function Settings() {
+  const { theme, accentColor, setTheme, setAccentColor } = useTheme();
   const [aiLearningMode, setAiLearningMode] = useState(true);
   const [autoAssignment, setAutoAssignment] = useState(true);
   const [confidenceThreshold, setConfidenceThreshold] = useState([80]);
-  const [selectedTheme, setSelectedTheme] = useState(0);
   const [selectedFormats, setSelectedFormats] = useState(["PDF", "JPG", "PNG"]);
 
   const toggleFormat = (format: string) => {
@@ -27,6 +31,23 @@ export default function Settings() {
         ? prev.filter((f) => f !== format)
         : [...prev, format]
     );
+  };
+
+  const handleAccentChange = (color: AccentColor) => {
+    setAccentColor(color);
+    toast({
+      title: "Theme Updated",
+      description: `Accent color changed to ${color}`,
+    });
+  };
+
+  const handleThemeToggle = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    toast({
+      title: "Theme Updated",
+      description: `Switched to ${newTheme} mode`,
+    });
   };
 
   return (
@@ -49,22 +70,42 @@ export default function Settings() {
               <p className="text-xs sm:text-sm text-muted-foreground">Choose your accent color</p>
             </div>
           </div>
-          <div className="flex gap-2 sm:gap-3">
-            {colorThemes.map((theme, index) => (
+          <div className="flex gap-2 sm:gap-3 mb-4">
+            {colorThemes.map((colorTheme) => (
               <button
-                key={theme.name}
-                onClick={() => setSelectedTheme(index)}
+                key={colorTheme.name}
+                onClick={() => handleAccentChange(colorTheme.value)}
                 className={cn(
-                  "flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full transition-all",
-                  selectedTheme === index && "ring-2 ring-offset-2 ring-foreground"
+                  "flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full transition-all hover:scale-110",
+                  accentColor === colorTheme.value && "ring-2 ring-offset-2 ring-foreground"
                 )}
-                style={{ backgroundColor: theme.color }}
+                style={{ backgroundColor: colorTheme.color }}
+                title={colorTheme.name}
               >
-                {selectedTheme === index && (
+                {accentColor === colorTheme.value && (
                   <span className="text-white text-xs sm:text-sm">✓</span>
                 )}
               </button>
             ))}
+          </div>
+          
+          {/* Dark Mode Toggle */}
+          <div className="flex items-center justify-between pt-3 border-t">
+            <div className="flex items-center gap-2">
+              {theme === "dark" ? (
+                <Moon className="h-4 w-4 text-secondary" />
+              ) : (
+                <Sun className="h-4 w-4 text-secondary" />
+              )}
+              <div>
+                <p className="font-medium text-foreground text-sm">Dark Mode</p>
+                <p className="text-xs text-muted-foreground">Toggle dark/light theme</p>
+              </div>
+            </div>
+            <Switch 
+              checked={theme === "dark"} 
+              onCheckedChange={handleThemeToggle} 
+            />
           </div>
         </div>
 
