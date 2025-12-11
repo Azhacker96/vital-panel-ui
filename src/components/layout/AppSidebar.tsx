@@ -96,7 +96,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">Admin User</p>
-                <p className="text-xs text-sidebar-foreground/60 truncate">admin@medadmin.com</p>
+                <p className="text-xs text-sidebar-foreground/60 truncate">m.azeem.talib@gmail.com</p>
               </div>
             )}
           </div>
