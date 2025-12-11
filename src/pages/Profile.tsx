@@ -7,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 
 export default function Profile() {
   const [name, setName] = useState("Admin User");
-  const [email, setEmail] = useState("admin@medadmin.com");
+  const [email, setEmail] = useState("m.azeem.talib@gmail.com");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
