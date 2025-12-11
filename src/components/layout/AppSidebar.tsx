@@ -9,12 +9,14 @@ import {
   Activity, 
   UserCircle,
   ChevronLeft,
-  Menu
+  Menu,
+  LogOut
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { useNavigate } from "react-router-dom";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -34,6 +36,14 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
     <aside
       className={cn(
@@ -91,15 +101,26 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             collapsed && "justify-center px-2"
           )}>
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-secondary-foreground text-sm font-medium">
-              A
+              {user?.name?.charAt(0) || "A"}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">Admin User</p>
-                <p className="text-xs text-sidebar-foreground/60 truncate">m.azeem.talib@gmail.com</p>
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name || "Admin User"}</p>
+                <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email || "m.azeem.talib@gmail.com"}</p>
               </div>
             )}
           </div>
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            className={cn(
+              "w-full mt-2 text-sidebar-foreground/80 hover:bg-destructive/10 hover:text-destructive",
+              collapsed ? "px-2" : "justify-start px-3"
+            )}
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed && <span className="ml-2">Logout</span>}
+          </Button>
         </div>
       </div>
     </aside>
