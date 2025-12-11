@@ -8,11 +8,14 @@ import {
   Settings, 
   Activity, 
   UserCircle,
-  MoreHorizontal
+  MoreHorizontal,
+  LogOut
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Sheet,
   SheetContent,
@@ -38,6 +41,14 @@ const moreNavItems = [
 
 export function MobileNav() {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    setSheetOpen(false);
+    navigate("/login");
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card safe-area-bottom">
@@ -79,6 +90,13 @@ export function MobileNav() {
                   <span className="text-xs font-medium text-center">{item.title}</span>
                 </NavLink>
               ))}
+              <button
+                onClick={handleLogout}
+                className="flex flex-col items-center gap-2 rounded-lg p-4 text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <LogOut className="h-6 w-6" />
+                <span className="text-xs font-medium text-center">Logout</span>
+              </button>
             </div>
           </SheetContent>
         </Sheet>
