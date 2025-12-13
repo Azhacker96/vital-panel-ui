@@ -47,7 +47,7 @@ export default function Login() {
             <Activity className="w-8 h-8 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">Self Learning Medical Analysis</CardTitle>
+            <CardTitle className="text-2xl font-bold">Self-Learning Medical Analyst</CardTitle>
             <CardDescription className="mt-2">
               Sign in to access the admin panel
             </CardDescription>
