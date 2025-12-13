@@ -37,21 +37,11 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
 
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center gap-6 px-6 text-center">
-        {/* Logo container with wave animation */}
+        {/* Logo container with animation */}
         <div className="relative">
-          {/* Wave rings */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="absolute w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full border-2 border-primary-foreground/30 animate-[wave_2s_ease-out_infinite]" />
-            <div className="absolute w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full border-2 border-primary-foreground/20 animate-[wave_2s_ease-out_infinite_0.4s]" />
-            <div className="absolute w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full border-2 border-primary-foreground/10 animate-[wave_2s_ease-out_infinite_0.8s]" />
-          </div>
-          
-          {/* Glow effect */}
           <div className="absolute inset-0 bg-primary-foreground/20 rounded-full blur-xl animate-pulse" />
-          
-          {/* Main logo circle */}
           <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-primary-foreground/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-primary-foreground/20 animate-scale-in">
-            <Activity className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-primary-foreground animate-[pulse_1.5s_ease-in-out_infinite]" />
+            <Activity className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-primary-foreground" />
           </div>
         </div>
 
@@ -77,20 +67,6 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
           <div className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
         </div>
       </div>
-
-      {/* Wave animation styles */}
-      <style>{`
-        @keyframes wave {
-          0% {
-            transform: scale(1);
-            opacity: 0.6;
-          }
-          100% {
-            transform: scale(2.5);
-            opacity: 0;
-          }
-        }
-      `}</style>
     </div>
   );
 };
