@@ -1,5 +1,5 @@
-import { Activity } from "lucide-react";
 import { useEffect, useState } from "react";
+import EKGAnimation from "./EKGAnimation";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -37,11 +37,11 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
 
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center gap-6 px-6 text-center">
-        {/* Logo container with animation */}
+        {/* EKG Animation container */}
         <div className="relative">
           <div className="absolute inset-0 bg-primary-foreground/20 rounded-full blur-xl animate-pulse" />
-          <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-primary-foreground/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-primary-foreground/20 animate-scale-in">
-            <Activity className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-primary-foreground" />
+          <div className="relative w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 bg-primary-foreground/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-primary-foreground/20 animate-scale-in overflow-hidden p-4">
+            <EKGAnimation />
           </div>
         </div>
 
