@@ -1,59 +1,9 @@
+import { Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
-
-const HeartbeatLine = () => {
-  return (
-    <svg
-      viewBox="0 0 200 60"
-      className="w-32 sm:w-40 md:w-48 h-12 sm:h-14 md:h-16"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      <defs>
-        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
-          <stop offset="50%" stopColor="currentColor" stopOpacity="1" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0.3" />
-        </linearGradient>
-      </defs>
-      
-      {/* ECG heartbeat path */}
-      <path
-        d="M 0 30 L 30 30 L 40 30 L 50 30 L 55 30 L 60 20 L 65 40 L 70 10 L 75 50 L 80 25 L 85 30 L 95 30 L 105 30 L 110 30 L 115 20 L 120 40 L 125 10 L 130 50 L 135 25 L 140 30 L 150 30 L 200 30"
-        fill="none"
-        stroke="url(#lineGradient)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-primary-foreground animate-[dash_2s_linear_infinite]"
-        style={{
-          strokeDasharray: "300",
-          strokeDashoffset: "300",
-        }}
-      />
-      
-      {/* Glowing dot that travels along the path */}
-      <circle r="4" fill="currentColor" className="text-primary-foreground">
-        <animateMotion
-          dur="2s"
-          repeatCount="indefinite"
-          path="M 0 30 L 30 30 L 40 30 L 50 30 L 55 30 L 60 20 L 65 40 L 70 10 L 75 50 L 80 25 L 85 30 L 95 30 L 105 30 L 110 30 L 115 20 L 120 40 L 125 10 L 130 50 L 135 25 L 140 30 L 150 30 L 200 30"
-        />
-      </circle>
-      
-      {/* Glow effect for the dot */}
-      <circle r="8" fill="currentColor" className="text-primary-foreground opacity-30">
-        <animateMotion
-          dur="2s"
-          repeatCount="indefinite"
-          path="M 0 30 L 30 30 L 40 30 L 50 30 L 55 30 L 60 20 L 65 40 L 70 10 L 75 50 L 80 25 L 85 30 L 95 30 L 105 30 L 110 30 L 115 20 L 120 40 L 125 10 L 130 50 L 135 25 L 140 30 L 150 30 L 200 30"
-        />
-      </circle>
-    </svg>
-  );
-};
 
 const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   const [fadeOut, setFadeOut] = useState(false);
@@ -87,10 +37,12 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
 
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center gap-6 px-6 text-center">
-        {/* Heartbeat ECG Animation */}
-        <div className="relative animate-scale-in">
-          <div className="absolute inset-0 bg-primary-foreground/20 blur-xl animate-pulse" />
-          <HeartbeatLine />
+        {/* Logo container with animation */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary-foreground/20 rounded-full blur-xl animate-pulse" />
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-primary-foreground/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-primary-foreground/20 animate-scale-in">
+            <Activity className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-primary-foreground" />
+          </div>
         </div>
 
         {/* App name */}

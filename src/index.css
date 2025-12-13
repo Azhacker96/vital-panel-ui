@@ -171,12 +171,3 @@
     transform: scale(1);
   }
 }
-
-@keyframes dash {
-  0% {
-    stroke-dashoffset: 300;
-  }
-  100% {
-    stroke-dashoffset: 0;
-  }
-}
