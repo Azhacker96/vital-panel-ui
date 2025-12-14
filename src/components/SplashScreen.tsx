@@ -1,34 +1,9 @@
+import { Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
-
-const HeartbeatWaveform = () => {
-  return (
-    <div className="relative w-16 h-12 sm:w-20 sm:h-14 md:w-24 md:h-16 overflow-hidden">
-      <svg
-        viewBox="0 0 200 80"
-        className="w-full h-full"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {/* Animated heartbeat path */}
-        <path
-          d="M0,40 L30,40 L40,40 L50,20 L60,60 L70,10 L80,70 L90,40 L100,40 L130,40 L140,40 L150,20 L160,60 L170,10 L180,70 L190,40 L200,40 L230,40 L240,40 L250,20 L260,60 L270,10 L280,70 L290,40 L300,40"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-primary-foreground animate-heartbeat-wave"
-        />
-      </svg>
-      {/* Gradient overlay for smooth edges */}
-      <div className="absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-primary-foreground/10 to-transparent" />
-      <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-primary-foreground/10 to-transparent" />
-    </div>
-  );
-};
 
 const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   const [fadeOut, setFadeOut] = useState(false);
@@ -62,11 +37,11 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
 
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center gap-6 px-6 text-center">
-        {/* Logo container with heartbeat animation */}
+        {/* Logo container with animation */}
         <div className="relative">
           <div className="absolute inset-0 bg-primary-foreground/20 rounded-full blur-xl animate-pulse" />
           <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-primary-foreground/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-primary-foreground/20 animate-scale-in">
-            <HeartbeatWaveform />
+            <Activity className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-primary-foreground" />
           </div>
         </div>
 
