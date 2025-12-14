@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +30,7 @@ const iconStyles = {
   secondary: "bg-secondary/20 text-secondary",
 };
 
-export function StatCard({ 
+export const StatCard = memo(function StatCard({ 
   title, 
   value, 
   icon: Icon, 
@@ -65,4 +66,4 @@ export function StatCard({
       </div>
     </div>
   );
-}
+});
