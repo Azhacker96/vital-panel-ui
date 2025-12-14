@@ -29,13 +29,14 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
+    // Start fade out after 2 seconds for faster experience
     const timer = setTimeout(() => {
       setFadeOut(true);
-    }, 3000);
+    }, 2000);
 
     const completeTimer = setTimeout(() => {
       onComplete();
-    }, 3500);
+    }, 2400);
 
     return () => {
       clearTimeout(timer);
