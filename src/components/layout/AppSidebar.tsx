@@ -12,6 +12,7 @@ import {
   Menu,
   LogOut
 } from "lucide-react";
+import { HeartbeatLogo } from "@/components/HeartbeatLogo";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,11 +57,12 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
           {!collapsed && (
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
-                <Activity className="h-5 w-5 text-secondary-foreground" />
-              </div>
+              <HeartbeatLogo size="sm" />
               <span className="text-sm font-semibold text-sidebar-foreground leading-tight">Self Learning<br/>Medical Analysis</span>
             </div>
+          )}
+          {collapsed && (
+            <HeartbeatLogo size="sm" className="mx-auto" />
           )}
           <Button
             variant="ghost"

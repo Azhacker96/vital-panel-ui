@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
+import { HeartbeatLogo } from "@/components/HeartbeatLogo";
 import {
   Sheet,
   SheetContent,
@@ -74,8 +75,9 @@ export function MobileNav() {
             </button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-auto max-h-[70vh] rounded-t-xl">
-            <SheetHeader>
-              <SheetTitle className="text-left">More Options</SheetTitle>
+            <SheetHeader className="flex flex-row items-center gap-3">
+              <HeartbeatLogo size="sm" />
+              <SheetTitle className="text-left">Self-Learning Medical Analyst</SheetTitle>
             </SheetHeader>
             <div className="mt-4 grid grid-cols-3 gap-4 pb-6">
               {moreNavItems.map((item) => (
