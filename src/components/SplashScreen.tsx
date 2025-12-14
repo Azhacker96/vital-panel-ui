@@ -1,9 +1,29 @@
-import { Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
+
+const HeartbeatWaveform = () => {
+  return (
+    <svg
+      viewBox="0 0 200 60"
+      className="w-full h-full"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {/* Heartbeat waveform path */}
+      <path
+        d="M0,30 L20,30 L25,30 L30,30 L35,10 L40,50 L45,20 L50,35 L55,30 L75,30 L80,30 L85,30 L90,10 L95,50 L100,20 L105,35 L110,30 L130,30 L135,30 L140,30 L145,10 L150,50 L155,20 L160,35 L165,30 L185,30 L190,30 L195,30 L200,30"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-primary-foreground heartbeat-line"
+      />
+    </svg>
+  );
+};
 
 const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   const [fadeOut, setFadeOut] = useState(false);
@@ -37,11 +57,13 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
 
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center gap-6 px-6 text-center">
-        {/* Logo container with animation */}
+        {/* Logo container with heartbeat animation */}
         <div className="relative">
           <div className="absolute inset-0 bg-primary-foreground/20 rounded-full blur-xl animate-pulse" />
-          <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-primary-foreground/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-primary-foreground/20 animate-scale-in">
-            <Activity className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-primary-foreground" />
+          <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-primary-foreground/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-primary-foreground/20 animate-scale-in overflow-hidden">
+            <div className="w-20 h-12 sm:w-24 sm:h-14 md:w-28 md:h-16">
+              <HeartbeatWaveform />
+            </div>
           </div>
         </div>
 
