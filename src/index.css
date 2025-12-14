@@ -139,6 +139,10 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
+
+  .animate-heartbeat-wave {
+    animation: heartbeat-wave 1.5s linear infinite;
+  }
 }
 
 @keyframes fadeIn {
@@ -169,5 +173,14 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes heartbeat-wave {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100px);
   }
 }
