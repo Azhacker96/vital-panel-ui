@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
-import { Activity, Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { HeartbeatLogo } from "@/components/HeartbeatLogo";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -44,8 +45,8 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center">
-            <Activity className="w-8 h-8 text-primary" />
+          <div className="mx-auto">
+            <HeartbeatLogo size="lg" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">Self-Learning Medical Analyst</CardTitle>
