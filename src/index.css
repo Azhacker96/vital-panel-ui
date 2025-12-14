@@ -139,6 +139,12 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
+
+  .heartbeat-line {
+    stroke-dasharray: 400;
+    stroke-dashoffset: 400;
+    animation: heartbeat-draw 2s ease-in-out infinite;
+  }
 }
 
 @keyframes fadeIn {
@@ -169,5 +175,17 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes heartbeat-draw {
+  0% {
+    stroke-dashoffset: 400;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -400;
   }
 }
