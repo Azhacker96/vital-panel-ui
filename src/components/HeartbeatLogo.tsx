@@ -24,7 +24,7 @@ export const HeartbeatLogo = ({ size = "md", className }: HeartbeatLogoProps) =>
     <div
       className={cn(
         "relative rounded-full flex items-center justify-center overflow-hidden",
-        "bg-primary/10 border border-primary/20",
+        "bg-secondary/20 border border-secondary/30",
         sizeClasses[size],
         className
       )}
@@ -39,10 +39,10 @@ export const HeartbeatLogo = ({ size = "md", className }: HeartbeatLogoProps) =>
             d="M0,30 L20,30 L25,30 L30,30 L35,10 L40,50 L45,20 L50,35 L55,30 L75,30 L80,30 L85,30 L90,10 L95,50 L100,20 L105,35 L110,30 L130,30 L135,30 L140,30 L145,10 L150,50 L155,20 L160,35 L165,30 L185,30 L190,30 L195,30 L200,30"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="text-primary heartbeat-line"
+            className="text-secondary heartbeat-line"
           />
         </svg>
       </div>
