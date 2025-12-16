@@ -54,25 +54,37 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
     >
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          {!collapsed && (
-            <div className="flex items-center gap-2">
-              <HeartbeatLogo size="sm" />
+        <div className="flex h-16 items-center border-b border-sidebar-border px-3">
+          <div className={cn(
+            "flex items-center gap-2 flex-1 min-w-0",
+            collapsed && "justify-center"
+          )}>
+            <HeartbeatLogo size="sm" className="flex-shrink-0" />
+            {!collapsed && (
               <span className="text-sm font-semibold text-sidebar-foreground leading-tight">Self Learning<br/>Medical Analysis</span>
-            </div>
+            )}
+          </div>
+          {!collapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent flex-shrink-0"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
           )}
-          {collapsed && (
-            <HeartbeatLogo size="sm" className="mx-auto" />
-          )}
+        </div>
+        {collapsed && (
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggle}
-            className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
+            className="h-8 w-8 mx-auto mt-2 text-sidebar-foreground hover:bg-sidebar-accent"
           >
-            {collapsed ? <Menu className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+            <Menu className="h-5 w-5" />
           </Button>
-        </div>
+        )}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3">
