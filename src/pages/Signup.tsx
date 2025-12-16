@@ -5,35 +5,56 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
-import { Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { Lock, Mail, Eye, EyeOff, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HeartbeatLogo } from "@/components/HeartbeatLogo";
 
-export default function Login() {
+export default function Signup() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { signup } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast({
+        title: "Password mismatch",
+        description: "Passwords do not match. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     setTimeout(() => {
-      const result = login(email, password);
+      const result = signup(email, password, name);
       if (result.success) {
         toast({
-          title: "Welcome back!",
-          description: "You have successfully logged in.",
+          title: "Account created!",
+          description: "Welcome to Self-Learning Medical Analyst.",
         });
         navigate("/");
       } else {
         toast({
-          title: "Login failed",
-          description: result.error || "Invalid email or password. Please try again.",
+          title: "Signup failed",
+          description: result.error || "Could not create account. Please try again.",
           variant: "destructive",
         });
       }
@@ -49,14 +70,29 @@ export default function Login() {
             <HeartbeatLogo size="lg" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">Self-Learning Medical Analyst</CardTitle>
+            <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
             <CardDescription className="mt-2">
-              Sign in to access your panel
+              Sign up as a patient to get started
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
@@ -79,7 +115,7 @@ export default function Login() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder="Create a password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10"
@@ -94,16 +130,31 @@ export default function Login() {
                 </button>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="confirmPassword"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
           
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:underline font-medium">
-                Sign up
+              Already have an account?{" "}
+              <Link to="/login" className="text-primary hover:underline font-medium">
+                Sign in
               </Link>
             </p>
           </div>
