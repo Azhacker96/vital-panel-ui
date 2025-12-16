@@ -22,7 +22,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Mobile Header */}
       {isMobile && (
-        <header className="fixed top-0 left-0 right-0 z-50 h-14 border-b bg-card flex items-center px-4 gap-3">
+        <header className="h-14 border-b bg-card flex items-center px-4 gap-3">
           <HeartbeatLogo size="sm" />
           <span className="text-sm font-semibold text-foreground leading-tight">Self Learning<br/>Medical Analyst</span>
         </header>
@@ -32,7 +32,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <main
         className={cn(
           "min-h-screen transition-all duration-300 ease-in-out",
-          isMobile ? "ml-0 pt-14 pb-20" : (collapsed ? "ml-16" : "ml-64")
+          isMobile ? "ml-0 pb-20" : (collapsed ? "ml-16" : "ml-64")
         )}
       >
         <div className="p-4 md:p-6">
