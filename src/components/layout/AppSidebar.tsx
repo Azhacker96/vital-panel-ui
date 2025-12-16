@@ -54,24 +54,35 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
     >
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          {!collapsed && (
-            <div className="flex items-center gap-2">
-              <HeartbeatLogo size="sm" />
-              <span className="text-sm font-semibold text-sidebar-foreground leading-tight">Self Learning<br/>Medical Analysis</span>
-            </div>
+        <div className={cn(
+          "flex h-16 items-center border-b border-sidebar-border",
+          collapsed ? "justify-center px-2" : "justify-between px-4"
+        )}>
+          {!collapsed ? (
+            <>
+              <div className="flex items-center gap-2">
+                <HeartbeatLogo size="sm" />
+                <span className="text-sm font-semibold text-sidebar-foreground leading-tight">Self Learning<br/>Medical Analysis</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggle}
+                className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
           )}
-          {collapsed && (
-            <HeartbeatLogo size="sm" className="mx-auto" />
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggle}
-            className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            {collapsed ? <Menu className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-          </Button>
         </div>
 
         {/* Navigation */}
