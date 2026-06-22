@@ -20,7 +20,7 @@ export default function Signup() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (password !== confirmPassword) {
@@ -42,24 +42,21 @@ export default function Signup() {
     }
 
     setIsLoading(true);
-
-    setTimeout(() => {
-      const result = signup(email, password, name);
-      if (result.success) {
-        toast({
-          title: "Account created!",
-          description: "Welcome to Self-Learning Medical Analyst.",
-        });
-        navigate("/");
-      } else {
-        toast({
-          title: "Signup failed",
-          description: result.error || "Could not create account. Please try again.",
-          variant: "destructive",
-        });
-      }
-      setIsLoading(false);
-    }, 500);
+    const result = await signup(email, password, name);
+    if (result.success) {
+      toast({
+        title: "Account created!",
+        description: "Please check your email to verify your account, then sign in.",
+      });
+      navigate("/login");
+    } else {
+      toast({
+        title: "Signup failed",
+        description: result.error || "Could not create account. Please try again.",
+        variant: "destructive",
+      });
+    }
+    setIsLoading(false);
   };
 
   return (

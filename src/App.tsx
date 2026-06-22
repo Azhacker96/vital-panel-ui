@@ -23,6 +23,8 @@ import Logs from "./pages/Logs";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 // Doctor Pages
@@ -47,8 +49,8 @@ import PatientProfile from "./pages/patient/PatientProfile";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
-  const { isAuthenticated, user } = useAuth();
-  
+  const { isAuthenticated, user, isLoading } = useAuth();
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     // Redirect to appropriate dashboard based on role
@@ -60,7 +62,8 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
   if (isAuthenticated && user) {
     if (user.role === 'admin') return <Navigate to="/" replace />;
     if (user.role === 'doctor') return <Navigate to="/doctor" replace />;
@@ -75,6 +78,8 @@ const AppRoutes = () => {
       {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       
       {/* Admin Routes */}
       <Route path="/" element={<ProtectedRoute allowedRoles={['admin']}><MainLayout><Index /></MainLayout></ProtectedRoute>} />
