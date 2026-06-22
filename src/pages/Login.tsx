@@ -18,27 +18,21 @@ export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    setTimeout(() => {
-      const result = login(email, password);
-      if (result.success) {
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully logged in.",
-        });
-        navigate("/");
-      } else {
-        toast({
-          title: "Login failed",
-          description: result.error || "Invalid email or password. Please try again.",
-          variant: "destructive",
-        });
-      }
-      setIsLoading(false);
-    }, 500);
+    const result = await login(email, password);
+    if (result.success) {
+      toast({ title: "Welcome back!", description: "You have successfully logged in." });
+      navigate("/");
+    } else {
+      toast({
+        title: "Login failed",
+        description: result.error || "Invalid email or password. Please try again.",
+        variant: "destructive",
+      });
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -104,6 +98,11 @@ export default function Login() {
               Don't have an account?{" "}
               <Link to="/signup" className="text-primary hover:underline font-medium">
                 Sign up
+              </Link>
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              <Link to="/forgot-password" className="text-primary hover:underline">
+                Forgot password?
               </Link>
             </p>
           </div>

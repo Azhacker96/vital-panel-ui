@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 export type UserRole = 'admin' | 'doctor' | 'patient';
 
@@ -11,196 +13,142 @@ export interface User {
   avatar?: string;
 }
 
+interface AuthResult { success: boolean; error?: string }
+
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => { success: boolean; error?: string };
-  logout: () => void;
-  signup: (email: string, password: string, name: string) => { success: boolean; error?: string };
-  getAllUsers: () => User[];
-  updateUserRole: (userId: string, newRole: UserRole) => boolean;
-  updateUserStatus: (userId: string, status: 'active' | 'inactive') => boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  signup: (email: string, password: string, name: string) => Promise<AuthResult>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<AuthResult>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Dummy users database
-const INITIAL_USERS: (User & { password: string })[] = [
-  {
-    id: '1',
-    email: 'm.azeem.talib@gmail.com',
-    password: 'admin123',
-    name: 'Admin User',
-    role: 'admin',
-    status: 'active',
-    avatar: 'AU'
-  },
-  {
-    id: '2',
-    email: 'doctor1@demo.com',
-    password: 'doctor123',
-    name: 'Dr. Sarah Smith',
-    role: 'doctor',
-    status: 'active',
-    avatar: 'SS'
-  },
-  {
-    id: '3',
-    email: 'doctor2@demo.com',
-    password: 'doctor123',
-    name: 'Dr. Michael Brown',
-    role: 'doctor',
-    status: 'active',
-    avatar: 'MB'
-  },
-  {
-    id: '4',
-    email: 'patient1@demo.com',
-    password: 'patient123',
-    name: 'John Anderson',
-    role: 'patient',
-    status: 'active',
-    avatar: 'JA'
-  },
-  {
-    id: '5',
-    email: 'patient2@demo.com',
-    password: 'patient123',
-    name: 'Emily Johnson',
-    role: 'patient',
-    status: 'active',
-    avatar: 'EJ'
-  },
-];
+function initialsFrom(name: string, email: string): string {
+  const source = (name?.trim() || email || '').trim();
+  if (!source) return 'U';
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return source.slice(0, 2).toUpperCase();
+}
+
+async function loadUser(userId: string, email: string): Promise<User | null> {
+  const [{ data: profile }, { data: roleRow }] = await Promise.all([
+    supabase.from('profiles').select('first_name,last_name,avatar_url,status,email').eq('id', userId).maybeSingle(),
+    supabase.from('user_roles').select('role').eq('user_id', userId).order('role', { ascending: true }).limit(1).maybeSingle(),
+  ]);
+
+  const first = profile?.first_name ?? '';
+  const last = profile?.last_name ?? '';
+  const name = [first, last].filter(Boolean).join(' ').trim() || (profile?.email ?? email);
+  const role = (roleRow?.role as UserRole | undefined) ?? 'patient';
+
+  return {
+    id: userId,
+    email: profile?.email ?? email,
+    name,
+    role,
+    status: (profile?.status as 'active' | 'inactive') ?? 'active',
+    avatar: profile?.avatar_url ?? initialsFrom(name, email),
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<(User & { password: string })[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Load users from localStorage or use initial users
-    const savedUsers = localStorage.getItem('app_users');
-    if (savedUsers) {
-      setUsers(JSON.parse(savedUsers));
-    } else {
-      setUsers(INITIAL_USERS);
-      localStorage.setItem('app_users', JSON.stringify(INITIAL_USERS));
-    }
-
-    // Load current user session
-    const savedUser = localStorage.getItem('auth_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+  const hydrate = useCallback(async (s: Session | null) => {
+    if (!s?.user) { setUser(null); return; }
+    try {
+      const u = await loadUser(s.user.id, s.user.email ?? '');
+      setUser(u);
+    } catch (e) {
+      console.error('loadUser failed', e);
+      setUser(null);
     }
   }, []);
 
-  const saveUsers = (updatedUsers: (User & { password: string })[]) => {
-    setUsers(updatedUsers);
-    localStorage.setItem('app_users', JSON.stringify(updatedUsers));
-  };
+  useEffect(() => {
+    // Register listener FIRST
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      // Defer DB calls out of the callback
+      setTimeout(() => { hydrate(s); }, 0);
+    });
 
-  const login = (email: string, password: string): { success: boolean; error?: string } => {
-    const foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
-    
-    if (!foundUser) {
-      return { success: false, error: 'Invalid email or password' };
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      hydrate(s).finally(() => setIsLoading(false));
+    });
+
+    return () => { sub.subscription.unsubscribe(); };
+  }, [hydrate]);
+
+  const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+    const { error, data } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) return { success: false, error: error.message };
+    if (data.session?.user) {
+      const u = await loadUser(data.session.user.id, data.session.user.email ?? '');
+      if (u?.status === 'inactive') {
+        await supabase.auth.signOut();
+        return { success: false, error: 'Your account has been deactivated. Please contact an administrator.' };
+      }
     }
-
-    if (foundUser.status === 'inactive') {
-      return { success: false, error: 'Your account has been deactivated. Please contact an administrator.' };
-    }
-
-    const userData: User = {
-      id: foundUser.id,
-      email: foundUser.email,
-      name: foundUser.name,
-      role: foundUser.role,
-      status: foundUser.status,
-      avatar: foundUser.avatar
-    };
-    
-    setUser(userData);
-    localStorage.setItem('auth_user', JSON.stringify(userData));
     return { success: true };
-  };
+  }, []);
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('auth_user');
-  };
-
-  const signup = (email: string, password: string, name: string): { success: boolean; error?: string } => {
-    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (existingUser) {
-      return { success: false, error: 'An account with this email already exists' };
-    }
-
-    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    
-    const newUser: User & { password: string } = {
-      id: Date.now().toString(),
-      email,
+  const signup = useCallback(async (email: string, password: string, name: string): Promise<AuthResult> => {
+    const parts = name.trim().split(/\s+/);
+    const first_name = parts[0] || '';
+    const last_name = parts.slice(1).join(' ');
+    const redirectUrl = `${window.location.origin}/`;
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
       password,
-      name,
-      role: 'patient', // Default role for new signups
-      status: 'active',
-      avatar: initials
-    };
-
-    const updatedUsers = [...users, newUser];
-    saveUsers(updatedUsers);
-
-    // Auto-login after signup
-    const userData: User = {
-      id: newUser.id,
-      email: newUser.email,
-      name: newUser.name,
-      role: newUser.role,
-      status: newUser.status,
-      avatar: newUser.avatar
-    };
-    
-    setUser(userData);
-    localStorage.setItem('auth_user', JSON.stringify(userData));
-    
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: { name, first_name, last_name },
+      },
+    });
+    if (error) return { success: false, error: error.message };
     return { success: true };
-  };
+  }, []);
 
-  const getAllUsers = (): User[] => {
-    return users.map(({ password, ...user }) => user);
-  };
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+  }, []);
 
-  const updateUserRole = (userId: string, newRole: UserRole): boolean => {
-    if (user?.role !== 'admin') return false;
-    
-    const updatedUsers = users.map(u => 
-      u.id === userId ? { ...u, role: newRole } : u
-    );
-    saveUsers(updatedUsers);
-    return true;
-  };
+  const resetPassword = useCallback(async (email: string): Promise<AuthResult> => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  }, []);
 
-  const updateUserStatus = (userId: string, status: 'active' | 'inactive'): boolean => {
-    if (user?.role !== 'admin') return false;
-    
-    const updatedUsers = users.map(u => 
-      u.id === userId ? { ...u, status } : u
-    );
-    saveUsers(updatedUsers);
-    return true;
-  };
+  const refreshProfile = useCallback(async () => {
+    if (session) await hydrate(session);
+  }, [session, hydrate]);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated: !!user, 
-      login, 
-      logout, 
+    <AuthContext.Provider value={{
+      user,
+      session,
+      isAuthenticated: !!session && !!user,
+      isLoading,
+      login,
       signup,
-      getAllUsers,
-      updateUserRole,
-      updateUserStatus
+      logout,
+      resetPassword,
+      refreshProfile,
     }}>
       {children}
     </AuthContext.Provider>
@@ -208,9 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 }

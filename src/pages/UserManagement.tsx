@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, Search, MoreVertical, Edit, Trash2, Shield, Mail, RefreshCw, Power, PowerOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth, UserRole } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const roleColors = {
   admin: "bg-secondary/20 text-secondary border-secondary/30",
@@ -23,14 +24,48 @@ const roleColors = {
   patient: "bg-warning/20 text-warning border-warning/30",
 };
 
+interface ManagedUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: 'active' | 'inactive';
+  avatar: string;
+}
+
 export default function UserManagement() {
-  const { getAllUsers, updateUserRole, updateUserStatus, user: currentUser } = useAuth();
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const users = getAllUsers();
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    const [{ data: profiles }, { data: roles }] = await Promise.all([
+      supabase.from('profiles').select('id, first_name, last_name, email, avatar_url, status').order('created_at', { ascending: false }),
+      supabase.from('user_roles').select('user_id, role'),
+    ]);
+    const roleMap = new Map<string, UserRole>();
+    (roles ?? []).forEach((r: any) => roleMap.set(r.user_id, r.role));
+    const mapped: ManagedUser[] = (profiles ?? []).map((p: any) => {
+      const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.email || 'User';
+      const initials = name.split(/\s+/).map((s: string) => s[0]).slice(0, 2).join('').toUpperCase();
+      return {
+        id: p.id,
+        name,
+        email: p.email ?? '',
+        role: roleMap.get(p.id) ?? 'patient',
+        status: (p.status as 'active' | 'inactive') ?? 'active',
+        avatar: p.avatar_url ?? initials,
+      };
+    });
+    setUsers(mapped);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -39,38 +74,38 @@ export default function UserManagement() {
     return matchesSearch && matchesRole;
   });
 
-  const handleRoleChange = (userId: string, newRole: UserRole) => {
+  const handleRoleChange = async (userId: string, newRole: UserRole) => {
     if (userId === currentUser?.id) {
       toast({ title: "Cannot change own role", variant: "destructive" });
       return;
     }
-    const success = updateUserRole(userId, newRole);
-    if (success) {
-      toast({ title: "Role Updated", description: `User role changed to ${newRole}` });
-      setRefreshKey(k => k + 1);
-    }
+    const { error: delErr } = await supabase.from('user_roles').delete().eq('user_id', userId);
+    if (delErr) { toast({ title: 'Failed', description: delErr.message, variant: 'destructive' }); return; }
+    const { error } = await supabase.from('user_roles').insert({ user_id: userId, role: newRole });
+    if (error) { toast({ title: 'Failed', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: "Role Updated", description: `User role changed to ${newRole}` });
+    fetchUsers();
   };
 
-  const handleStatusChange = (userId: string, status: 'active' | 'inactive') => {
+  const handleStatusChange = async (userId: string, status: 'active' | 'inactive') => {
     if (userId === currentUser?.id) {
       toast({ title: "Cannot change own status", variant: "destructive" });
       return;
     }
-    const success = updateUserStatus(userId, status);
-    if (success) {
-      toast({ title: "Status Updated", description: `User ${status === 'active' ? 'activated' : 'deactivated'}` });
-      setRefreshKey(k => k + 1);
-    }
+    const { error } = await supabase.from('profiles').update({ status }).eq('id', userId);
+    if (error) { toast({ title: 'Failed', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: "Status Updated", description: `User ${status === 'active' ? 'activated' : 'deactivated'}` });
+    fetchUsers();
   };
 
   return (
-    <div className="space-y-6" key={refreshKey}>
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">User Management</h1>
           <p className="text-muted-foreground">Manage system users and their roles</p>
         </div>
-        <Button className="gap-2"><Plus className="h-4 w-4" />Add New User</Button>
+        <Button className="gap-2" onClick={fetchUsers}><RefreshCw className="h-4 w-4" />Refresh</Button>
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -87,6 +122,10 @@ export default function UserManagement() {
         </div>
       </div>
 
+      {loading && <p className="text-sm text-muted-foreground">Loading users…</p>}
+      {!loading && filteredUsers.length === 0 && (
+        <p className="text-sm text-muted-foreground">No users match your filters yet.</p>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filteredUsers.map((user, index) => (
           <div key={user.id} className="rounded-lg border bg-card p-5 card-shadow animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
