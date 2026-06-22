@@ -14,16 +14,394 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          entity: string | null
+          entity_id: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      doctor_reviews: {
+        Row: {
+          approved: boolean
+          comments: string | null
+          created_at: string
+          diagnosis: string | null
+          doctor_id: string
+          follow_up: string | null
+          id: string
+          report_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved?: boolean
+          comments?: string | null
+          created_at?: string
+          diagnosis?: string | null
+          doctor_id: string
+          follow_up?: string | null
+          id?: string
+          report_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved?: boolean
+          comments?: string | null
+          created_at?: string
+          diagnosis?: string | null
+          doctor_id?: string
+          follow_up?: string | null
+          id?: string
+          report_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_reviews_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          patient_id: string
+          rating: number
+          report_id: string | null
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          patient_id: string
+          rating: number
+          report_id?: string | null
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          patient_id?: string
+          rating?: number
+          report_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          read?: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      patient_medical_history: {
+        Row: {
+          id: string
+          patient_id: string
+          recorded_at: string
+          report_id: string | null
+          summary: string
+        }
+        Insert: {
+          id?: string
+          patient_id: string
+          recorded_at?: string
+          report_id?: string | null
+          summary: string
+        }
+        Update: {
+          id?: string
+          patient_id?: string
+          recorded_at?: string
+          report_id?: string | null
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_medical_history_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          phone: string | null
+          status: Database["public"]["Enums"]["profile_status"]
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          phone?: string | null
+          status?: Database["public"]["Enums"]["profile_status"]
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          status?: Database["public"]["Enums"]["profile_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      report_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          doctor_id: string
+          id: string
+          report_id: string
+          status: Database["public"]["Enums"]["assignment_status"]
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          doctor_id: string
+          id?: string
+          report_id: string
+          status?: Database["public"]["Enums"]["assignment_status"]
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          doctor_id?: string
+          id?: string
+          report_id?: string
+          status?: Database["public"]["Enums"]["assignment_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_assignments_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          ai_confidence: number | null
+          ai_summary: string | null
+          created_at: string
+          file_path: string
+          file_type: string | null
+          id: string
+          is_critical: boolean
+          ocr_text: string | null
+          parameters: Json | null
+          patient_id: string
+          status: Database["public"]["Enums"]["report_status"]
+          title: string | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          ai_confidence?: number | null
+          ai_summary?: string | null
+          created_at?: string
+          file_path: string
+          file_type?: string | null
+          id?: string
+          is_critical?: boolean
+          ocr_text?: string | null
+          parameters?: Json | null
+          patient_id: string
+          status?: Database["public"]["Enums"]["report_status"]
+          title?: string | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          ai_confidence?: number | null
+          ai_summary?: string | null
+          created_at?: string
+          file_path?: string
+          file_type?: string | null
+          id?: string
+          is_critical?: boolean
+          ocr_text?: string | null
+          parameters?: Json | null
+          patient_id?: string
+          status?: Database["public"]["Enums"]["report_status"]
+          title?: string | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
+      support_tickets: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          priority: Database["public"]["Enums"]["ticket_priority"]
+          status: Database["public"]["Enums"]["ticket_status"]
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_doctor_for_patient: {
+        Args: { _doctor: string; _patient: string }
+        Returns: boolean
+      }
+      is_doctor_for_report: {
+        Args: { _doctor: string; _report: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "doctor" | "patient"
+      assignment_status: "pending" | "in_progress" | "completed"
+      profile_status: "active" | "inactive"
+      report_status:
+        | "uploaded"
+        | "ocr"
+        | "ai_done"
+        | "under_review"
+        | "completed"
+        | "critical"
+      ticket_priority: "low" | "medium" | "high"
+      ticket_status: "open" | "in_progress" | "resolved" | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +528,20 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "doctor", "patient"],
+      assignment_status: ["pending", "in_progress", "completed"],
+      profile_status: ["active", "inactive"],
+      report_status: [
+        "uploaded",
+        "ocr",
+        "ai_done",
+        "under_review",
+        "completed",
+        "critical",
+      ],
+      ticket_priority: ["low", "medium", "high"],
+      ticket_status: ["open", "in_progress", "resolved", "closed"],
+    },
   },
 } as const
