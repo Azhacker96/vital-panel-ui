@@ -2,80 +2,62 @@ import { Bell, FileText, AlertTriangle, Clock, CheckCircle, Trash2 } from "lucid
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
-const initialNotifications = [
-  {
-    id: 1,
-    type: "assignment",
-    title: "New Report Assigned",
-    message: "A new X-Ray report for Emily Johnson has been assigned to you.",
-    time: "5 minutes ago",
-    read: false,
-    icon: FileText,
-  },
-  {
-    id: 2,
-    type: "critical",
-    title: "Critical Alert",
-    message: "Sarah Wilson's ECG report shows irregular heart rhythm. Immediate review required.",
-    time: "1 hour ago",
-    read: false,
-    icon: AlertTriangle,
-  },
-  {
-    id: 3,
-    type: "deadline",
-    title: "Review Deadline Reminder",
-    message: "3 reports are pending review and due within 24 hours.",
-    time: "2 hours ago",
-    read: false,
-    icon: Clock,
-  },
-  {
-    id: 4,
-    type: "completed",
-    title: "Report Approved",
-    message: "Your review for John Anderson's blood test has been processed.",
-    time: "1 day ago",
-    read: true,
-    icon: CheckCircle,
-  },
-  {
-    id: 5,
-    type: "assignment",
-    title: "New Report Assigned",
-    message: "MRI Scan report for Michael Davis requires your review.",
-    time: "1 day ago",
-    read: true,
-    icon: FileText,
-  },
-];
+type Row = { id: string; type: string; title: string; body: string | null; read: boolean; created_at: string };
 
-const typeStyles = {
+const typeStyles: Record<string, string> = {
   assignment: "bg-primary/10 text-primary",
   critical: "bg-destructive/10 text-destructive",
   deadline: "bg-warning/10 text-warning",
   completed: "bg-success/10 text-success",
+  alert: "bg-destructive/10 text-destructive",
+  report: "bg-primary/10 text-primary",
+};
+const typeIcons: Record<string, any> = {
+  assignment: FileText, critical: AlertTriangle, deadline: Clock, completed: CheckCircle, alert: AlertTriangle, report: FileText,
 };
 
+function timeAgo(iso: string) {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+  return `${Math.floor(diff / 86400)} days ago`;
+}
+
 export default function DoctorNotifications() {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState<Row[]>([]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("notifications")
+        .select("id,type,title,body,read,created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      setNotifications((data ?? []) as Row[]);
+    })();
+  }, [user]);
 
-  const markAsRead = (id: number) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markAsRead = async (id: string) => {
+    await supabase.from("notifications").update({ read: true }).eq("id", id);
+    setNotifications((rows) => rows.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
-
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    if (!user) return;
+    await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+    setNotifications((rows) => rows.map((n) => ({ ...n, read: true })));
   };
-
-  const deleteNotification = (id: number) => {
-    setNotifications(notifications.filter(n => n.id !== id));
+  const deleteNotification = async (id: string) => {
+    await supabase.from("notifications").delete().eq("id", id);
+    setNotifications((rows) => rows.filter((n) => n.id !== id));
   };
 
   return (
@@ -101,7 +83,9 @@ export default function DoctorNotifications() {
 
       {/* Notifications List */}
       <div className="space-y-3">
-        {notifications.map((notification, index) => (
+        {notifications.map((notification, index) => {
+          const Icon = typeIcons[notification.type] ?? Bell;
+          return (
           <Card 
             key={notification.id}
             className={`animate-slide-up transition-all ${!notification.read ? "bg-primary/5 border-primary/20" : ""}`}
@@ -109,8 +93,8 @@ export default function DoctorNotifications() {
           >
             <CardContent className="p-4">
               <div className="flex items-start gap-4">
-                <div className={`p-2 rounded-full ${typeStyles[notification.type as keyof typeof typeStyles]}`}>
-                  <notification.icon className="h-5 w-5" />
+                <div className={`p-2 rounded-full ${typeStyles[notification.type] ?? "bg-muted text-muted-foreground"}`}>
+                  <Icon className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
@@ -118,8 +102,8 @@ export default function DoctorNotifications() {
                       <h3 className={`font-semibold ${!notification.read ? "text-foreground" : "text-muted-foreground"}`}>
                         {notification.title}
                       </h3>
-                      <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
-                      <p className="text-xs text-muted-foreground mt-2">{notification.time}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{notification.body}</p>
+                      <p className="text-xs text-muted-foreground mt-2">{timeAgo(notification.created_at)}</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {!notification.read && (
@@ -141,7 +125,7 @@ export default function DoctorNotifications() {
               </div>
             </CardContent>
           </Card>
-        ))}
+        );})}
       </div>
 
       {notifications.length === 0 && (
