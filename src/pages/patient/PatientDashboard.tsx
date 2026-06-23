@@ -22,7 +22,7 @@ export default function PatientDashboard() {
       const rows = data ?? [];
       setCounts({
         total: rows.length,
-        review: rows.filter((r) => r.status === "under_review" || r.status === "pending").length,
+        review: rows.filter((r) => r.status === "uploaded" || r.status === "ocr" || r.status === "ai_done").length,
         critical: rows.filter((r) => r.is_critical).length,
         completed: rows.filter((r) => r.status === "completed").length,
       });
