@@ -1,49 +1,45 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Download, Merge, FileCheck, Trash2, FileText, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
-const patients = [
-  {
-    id: 1,
-    name: "John Doe",
-    age: 45,
-    gender: "Male",
-    reports: [
-      { id: 1, type: "Blood Test", date: "2024-01-15", status: "verified" },
-      { id: 2, type: "Liver Panel", date: "2024-01-10", status: "verified" },
-      { id: 3, type: "Kidney Function", date: "2023-12-20", status: "pending" },
-    ],
-  },
-  {
-    id: 2,
-    name: "Jane Smith",
-    age: 32,
-    gender: "Female",
-    reports: [
-      { id: 4, type: "Thyroid Panel", date: "2024-01-14", status: "verified" },
-      { id: 5, type: "CBC", date: "2024-01-08", status: "verified" },
-    ],
-  },
-  {
-    id: 3,
-    name: "Robert Johnson",
-    age: 58,
-    gender: "Male",
-    reports: [
-      { id: 6, type: "Cardiac Panel", date: "2024-01-12", status: "verified" },
-      { id: 7, type: "Lipid Profile", date: "2024-01-05", status: "pending" },
-      { id: 8, type: "Blood Sugar", date: "2023-12-28", status: "verified" },
-      { id: 9, type: "HbA1c", date: "2023-12-15", status: "verified" },
-    ],
-  },
-];
+type ReportEntry = { id: string; type: string; date: string; status: string };
+type Patient = { id: string; name: string; age: number | string; gender: string; reports: ReportEntry[] };
 
 export default function PatientHistory() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPatient, setSelectedPatient] = useState<number | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "patient");
+      const ids = (roles ?? []).map((r) => r.user_id);
+      if (ids.length === 0) { setLoading(false); return; }
+      const [{ data: profiles }, { data: reports }] = await Promise.all([
+        supabase.from("profiles").select("id,first_name,last_name").in("id", ids),
+        supabase.from("reports").select("id,title,created_at,status,patient_id").in("patient_id", ids).order("created_at", { ascending: false }),
+      ]);
+      const byPatient = new Map<string, ReportEntry[]>();
+      (reports ?? []).forEach((r) => {
+        const arr = byPatient.get(r.patient_id) ?? [];
+        arr.push({ id: r.id, type: r.title ?? "Report", date: new Date(r.created_at).toLocaleDateString(), status: r.status });
+        byPatient.set(r.patient_id, arr);
+      });
+      setPatients((profiles ?? []).map((p: any) => ({
+        id: p.id,
+        name: [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient",
+        age: "—",
+        gender: "—",
+        reports: byPatient.get(p.id) ?? [],
+      })));
+      setLoading(false);
+    })();
+  }, []);
 
   const filteredPatients = patients.filter((patient) =>
     patient.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -86,6 +82,8 @@ export default function PatientHistory() {
         {/* Patient List */}
         <div className="space-y-3">
           <h2 className="text-lg font-semibold text-foreground">Patients</h2>
+          {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+          {!loading && filteredPatients.length === 0 && <p className="text-sm text-muted-foreground">No patients found.</p>}
           {filteredPatients.map((patient, index) => (
             <div
               key={patient.id}
@@ -149,7 +147,7 @@ export default function PatientHistory() {
                         variant="outline"
                         className={cn(
                           "border",
-                          report.status === "verified"
+                          report.status === "completed"
                             ? "bg-success/10 text-success border-success/30"
                             : "bg-warning/10 text-warning border-warning/30"
                         )}
