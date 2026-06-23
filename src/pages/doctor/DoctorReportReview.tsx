@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, Check, X, AlertTriangle, Edit, MessageSquare, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate, useParams } from "react-router-dom";
 
-const sampleReport = {
+const fallbackReport = {
   id: 1,
   patient: "Emily Johnson",
   type: "X-Ray Analysis",
@@ -34,11 +37,57 @@ const statusColors = {
 };
 
 export default function DoctorReportReview() {
-  const [editMode, setEditMode] = useState<number | null>(null);
-  const [values, setValues] = useState(sampleReport.extractedValues);
-  const [comment, setComment] = useState("");
-  const [isCritical, setIsCritical] = useState(sampleReport.priority === "critical");
+  const { user } = useAuth();
+  const { id: routeId } = useParams();
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const [editMode, setEditMode] = useState<number | null>(null);
+  const [report, setReport] = useState<any>(null);
+  const [values, setValues] = useState(fallbackReport.extractedValues);
+  const [comment, setComment] = useState("");
+  const [isCritical, setIsCritical] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      // Pick most recent assigned report if no route id
+      let reportId = routeId;
+      if (!reportId) {
+        const { data: a } = await supabase
+          .from("report_assignments")
+          .select("report_id,assigned_at")
+          .eq("doctor_id", user.id)
+          .order("assigned_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        reportId = a?.report_id;
+      }
+      if (!reportId) return;
+      const { data: r } = await supabase
+        .from("reports")
+        .select("id,title,created_at,ai_confidence,ai_summary,ocr_text,parameters,is_critical,patient_id,status")
+        .eq("id", reportId)
+        .maybeSingle();
+      if (!r) return;
+      const { data: profile } = await supabase.from("profiles").select("first_name,last_name").eq("id", r.patient_id).maybeSingle();
+      const patientName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || "Patient";
+      const params = Array.isArray(r.parameters) ? (r.parameters as any[]) : [];
+      setReport({
+        ...r,
+        patient: patientName,
+        type: r.title ?? "Report",
+        date: new Date(r.created_at).toLocaleDateString(),
+        confidence: Math.round((r.ai_confidence ?? 0) * 100),
+      });
+      setIsCritical(!!r.is_critical);
+      if (params.length > 0) {
+        setValues(params.map((p) => ({ name: p.name, value: String(p.value ?? ""), status: p.status ?? "normal", editable: true })));
+      }
+    })();
+  }, [user, routeId]);
+
+  const data = report ?? { ...fallbackReport, patient: fallbackReport.patient, type: fallbackReport.type, date: fallbackReport.date, confidence: fallbackReport.confidence };
 
   const handleValueChange = (index: number, newValue: string) => {
     const updated = [...values];
@@ -52,19 +101,26 @@ export default function DoctorReportReview() {
     setValues(updated);
   };
 
-  const handleApprove = () => {
-    toast({
-      title: "Report Approved",
-      description: "The report has been approved and sent to the patient.",
+  const submitReview = async (approved: boolean) => {
+    if (!user || !report) { toast({ title: "Demo report — connect a real one to save." }); return; }
+    setSaving(true);
+    const { error: revErr } = await supabase.from("doctor_reviews").insert({
+      report_id: report.id, doctor_id: user.id, comments: comment, approved,
     });
-  };
-
-  const handleReject = () => {
-    toast({
-      title: "Report Rejected",
-      description: "The report has been rejected and flagged for re-review.",
-      variant: "destructive",
+    if (revErr) { toast({ title: "Failed", description: revErr.message, variant: "destructive" }); setSaving(false); return; }
+    const newStatus = approved ? (isCritical ? "critical" : "completed") : "under_review";
+    await supabase.from("reports").update({
+      status: newStatus, is_critical: isCritical, parameters: values as any,
+    }).eq("id", report.id);
+    await supabase.from("notifications").insert({
+      user_id: report.patient_id,
+      type: approved ? "completed" : "alert",
+      title: approved ? "Report Reviewed" : "Report Needs More Review",
+      body: comment || (approved ? "Your report has been reviewed." : "Your report requires re-review."),
     });
+    toast({ title: approved ? "Report Approved" : "Report Rejected", variant: approved ? "default" : "destructive" });
+    setSaving(false);
+    navigate("/doctor/reports");
   };
 
   return (
@@ -96,13 +152,13 @@ export default function DoctorReportReview() {
             <div className="aspect-[3/4] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
               <div className="text-center p-4">
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">X-Ray Image Preview</p>
-                <p className="text-xs text-muted-foreground mt-1">{sampleReport.patient} - {sampleReport.date}</p>
+                <p className="text-sm text-muted-foreground">Report Preview</p>
+                <p className="text-xs text-muted-foreground mt-1">{data.patient} - {data.date}</p>
               </div>
             </div>
             <div className="mt-4 p-3 bg-muted/30 rounded-lg">
               <p className="text-xs font-medium text-muted-foreground mb-2">OCR Extracted Text:</p>
-              <p className="text-sm text-foreground whitespace-pre-line">{sampleReport.ocrText}</p>
+              <p className="text-sm text-foreground whitespace-pre-line">{(report?.ocr_text) ?? fallbackReport.ocrText}</p>
             </div>
           </CardContent>
         </Card>
@@ -114,14 +170,14 @@ export default function DoctorReportReview() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-foreground">{sampleReport.patient}</h3>
-                  <p className="text-sm text-muted-foreground">{sampleReport.type}</p>
+                  <h3 className="font-semibold text-foreground">{data.patient}</h3>
+                  <p className="text-sm text-muted-foreground">{data.type}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge className={`${isCritical ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground"}`}>
                     {isCritical ? "Critical" : "Normal"}
                   </Badge>
-                  <span className="text-sm">AI: <span className="font-semibold">{sampleReport.confidence}%</span></span>
+                  <span className="text-sm">AI: <span className="font-semibold">{data.confidence}%</span></span>
                 </div>
               </div>
             </CardContent>
@@ -136,7 +192,7 @@ export default function DoctorReportReview() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{sampleReport.aiSummary}</p>
+              <p className="text-sm text-muted-foreground">{report?.ai_summary ?? fallbackReport.aiSummary}</p>
             </CardContent>
           </Card>
 
@@ -216,11 +272,11 @@ export default function DoctorReportReview() {
 
           {/* Actions */}
           <div className="flex gap-3">
-            <Button onClick={handleApprove} className="flex-1 gap-2 bg-success hover:bg-success/90">
+            <Button onClick={() => submitReview(true)} disabled={saving} className="flex-1 gap-2 bg-success hover:bg-success/90">
               <Check className="h-4 w-4" />
               Approve Report
             </Button>
-            <Button onClick={handleReject} variant="destructive" className="flex-1 gap-2">
+            <Button onClick={() => submitReview(false)} disabled={saving} variant="destructive" className="flex-1 gap-2">
               <X className="h-4 w-4" />
               Reject Report
             </Button>
