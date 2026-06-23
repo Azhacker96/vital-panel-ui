@@ -1,13 +1,12 @@
-import { Brain, CheckCircle, AlertTriangle, Info } from "lucide-react";
+import { Brain, CheckCircle, AlertTriangle, Info, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
-const results = [
-  { name: "Hemoglobin", value: "14.2 g/dL", status: "normal", range: "12-16 g/dL" },
-  { name: "Blood Sugar", value: "110 mg/dL", status: "borderline", range: "70-100 mg/dL" },
-  { name: "Cholesterol", value: "245 mg/dL", status: "abnormal", range: "<200 mg/dL" },
-  { name: "Blood Pressure", value: "120/80", status: "normal", range: "<120/80" },
-];
+type Param = { name: string; value: string; status: string; range?: string };
+type Report = { id: string; title: string | null; ai_summary: string | null; parameters: Param[] };
 
 const statusStyles = {
   normal: { bg: "bg-success/20", text: "text-success", icon: CheckCircle },
@@ -16,6 +15,44 @@ const statusStyles = {
 };
 
 export default function PatientAIResults() {
+  const { user } = useAuth();
+  const [report, setReport] = useState<Report | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("reports")
+        .select("id,title,ai_summary,parameters")
+        .eq("patient_id", user.id)
+        .not("ai_summary", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        const params = Array.isArray(data.parameters) ? (data.parameters as unknown as Param[]) : [];
+        setReport({ id: data.id, title: data.title, ai_summary: data.ai_summary, parameters: params });
+      }
+      setLoading(false);
+    })();
+  }, [user]);
+
+  if (loading) {
+    return <div className="space-y-6"><h1 className="text-2xl font-bold text-foreground">AI Analysis Results</h1><p className="text-sm text-muted-foreground">Loading…</p></div>;
+  }
+  if (!report) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">AI Analysis Results</h1>
+          <p className="text-muted-foreground">Easy-to-understand health insights</p>
+        </div>
+        <Card><CardContent className="p-8 text-center text-muted-foreground"><FileText className="h-10 w-10 mx-auto mb-2 opacity-50" />No AI-analyzed reports yet.</CardContent></Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -27,21 +64,22 @@ export default function PatientAIResults() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" />
-            Blood Test Summary
+            {report.title ?? "Latest Report"} Summary
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {results.map((result) => {
-            const style = statusStyles[result.status as keyof typeof statusStyles];
+          {report.parameters.length === 0 && <p className="text-sm text-muted-foreground">No structured parameters extracted.</p>}
+          {report.parameters.map((result, i) => {
+            const style = statusStyles[result.status as keyof typeof statusStyles] ?? statusStyles.normal;
             const Icon = style.icon;
             return (
-              <div key={result.name} className={`p-4 rounded-lg ${style.bg}`}>
+              <div key={`${result.name}-${i}`} className={`p-4 rounded-lg ${style.bg}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Icon className={`h-5 w-5 ${style.text}`} />
                     <div>
                       <p className="font-medium">{result.name}</p>
-                      <p className="text-sm text-muted-foreground">Normal: {result.range}</p>
+                      {result.range && <p className="text-sm text-muted-foreground">Normal: {result.range}</p>}
                     </div>
                   </div>
                   <div className="text-right">
@@ -55,14 +93,14 @@ export default function PatientAIResults() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-5">
-          <h3 className="font-semibold mb-2">What This Means</h3>
-          <p className="text-sm text-muted-foreground">
-            Your results show mostly normal values. Your cholesterol is slightly elevated - consider dietary changes and consult your doctor for personalized advice.
-          </p>
-        </CardContent>
-      </Card>
+      {report.ai_summary && (
+        <Card>
+          <CardContent className="p-5">
+            <h3 className="font-semibold mb-2">What This Means</h3>
+            <p className="text-sm text-muted-foreground">{report.ai_summary}</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

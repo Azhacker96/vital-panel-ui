@@ -1,18 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, Send, AlertTriangle, Brain, Clock, Users, XCircle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-const systemAlerts = [
-  { id: 1, type: "extraction_failed", message: "OCR extraction failed for report #1284", time: "5 min ago", icon: XCircle, severity: "error" },
-  { id: 2, type: "low_confidence", message: "Low AI confidence (72%) detected for report #1283", time: "12 min ago", icon: Brain, severity: "warning" },
-  { id: 3, type: "critical_parameter", message: "Critical parameter detected: Creatinine 3.2 mg/dL", time: "25 min ago", icon: AlertTriangle, severity: "critical" },
-  { id: 4, type: "review_delay", message: "Dr. Smith has 5 reports pending > 24 hours", time: "1 hour ago", icon: Clock, severity: "warning" },
-  { id: 5, type: "duplicate_profile", message: "Potential duplicate patient profile detected", time: "2 hours ago", icon: Users, severity: "info" },
-  { id: 6, type: "security", message: "Failed login attempt from IP 192.168.1.45", time: "3 hours ago", icon: Shield, severity: "error" },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const severityStyles = {
   critical: { bg: "bg-destructive/10", border: "border-destructive/30", icon: "text-destructive" },
@@ -21,9 +14,57 @@ const severityStyles = {
   info: { bg: "bg-secondary/10", border: "border-secondary/30", icon: "text-secondary" },
 };
 
+type Alert = { id: string; message: string; time: string; icon: any; severity: keyof typeof severityStyles };
+
+function iconForLevel(level: string) {
+  if (level === "error") return XCircle;
+  if (level === "warning") return Clock;
+  if (level === "critical") return AlertTriangle;
+  return Bell;
+}
+
+function timeAgo(iso: string) {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  return `${Math.floor(diff / 86400)} d ago`;
+}
+
 export default function Notifications() {
   const [recipient, setRecipient] = useState<"doctors" | "patients">("doctors");
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [systemAlerts, setAlerts] = useState<Alert[]>([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("activity_logs")
+        .select("id,action,metadata,created_at")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      setAlerts((data ?? []).map((r) => {
+        const meta = (r.metadata ?? {}) as { level?: string };
+        const level = (meta.level as keyof typeof severityStyles) ?? "info";
+        return { id: r.id, message: r.action, time: timeAgo(r.created_at), icon: iconForLevel(level), severity: level };
+      }));
+    })();
+  }, []);
+
+  const sendNotification = async () => {
+    if (!message.trim()) { toast({ title: "Message required", variant: "destructive" }); return; }
+    setSending(true);
+    const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", recipient === "doctors" ? "doctor" : "patient");
+    const ids = (roles ?? []).map((r) => r.user_id);
+    if (ids.length === 0) { toast({ title: "No recipients found", variant: "destructive" }); setSending(false); return; }
+    const inserts = ids.map((uid) => ({ user_id: uid, type: "alert", title: "Notification from Admin", body: message }));
+    const { error } = await supabase.from("notifications").insert(inserts);
+    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
+    else { toast({ title: `Sent to ${ids.length} ${recipient}` }); setMessage(""); }
+    setSending(false);
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -70,9 +111,9 @@ export default function Notifications() {
                   className="text-sm"
                 />
               </div>
-              <Button className="w-full gap-2" size="sm">
+              <Button className="w-full gap-2" size="sm" onClick={sendNotification} disabled={sending}>
                 <Send className="h-4 w-4" />
-                Send Notification
+                {sending ? "Sending…" : "Send Notification"}
               </Button>
             </div>
           </div>
@@ -108,6 +149,7 @@ export default function Notifications() {
             <Badge variant="secondary" className="text-xs">{systemAlerts.length} alerts</Badge>
           </div>
           <div className="space-y-2 sm:space-y-3">
+            {systemAlerts.length === 0 && <p className="text-sm text-muted-foreground">No recent alerts.</p>}
             {systemAlerts.map((alert, index) => {
               const style = severityStyles[alert.severity as keyof typeof severityStyles];
               return (

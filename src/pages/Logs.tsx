@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Activity, AlertCircle, Brain, FileText, Shield, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const logCategories = [
   { label: "User Activity", value: "activity", icon: Activity },
@@ -13,18 +14,7 @@ const logCategories = [
   { label: "Security", value: "security", icon: Shield },
 ];
 
-const logs = [
-  { id: 1, category: "activity", user: "Dr. Smith", action: "Approved report #1284", time: "2024-01-15 10:30:00", level: "info" },
-  { id: 2, category: "errors", user: "System", action: "OCR extraction failed for document #1285", time: "2024-01-15 10:28:00", level: "error" },
-  { id: 3, category: "ai", user: "AI Model", action: "Low confidence (68%) on parameter extraction", time: "2024-01-15 10:25:00", level: "warning" },
-  { id: 4, category: "workflow", user: "Admin", action: "Report #1280 reassigned to Dr. Johnson", time: "2024-01-15 10:20:00", level: "info" },
-  { id: 5, category: "security", user: "192.168.1.45", action: "Failed login attempt - invalid credentials", time: "2024-01-15 10:15:00", level: "error" },
-  { id: 6, category: "activity", user: "Jane Doe", action: "Uploaded new report for patient #456", time: "2024-01-15 10:10:00", level: "info" },
-  { id: 7, category: "ai", user: "AI Model", action: "Successfully extracted 15 parameters from report", time: "2024-01-15 10:05:00", level: "success" },
-  { id: 8, category: "workflow", user: "System", action: "Auto-assigned 3 reports via round-robin", time: "2024-01-15 10:00:00", level: "info" },
-  { id: 9, category: "errors", user: "System", action: "Database connection timeout - recovered", time: "2024-01-15 09:55:00", level: "warning" },
-  { id: 10, category: "security", user: "Admin", action: "User permissions updated for Dr. Brown", time: "2024-01-15 09:50:00", level: "info" },
-];
+type LogRow = { id: string; category: string; user: string; action: string; time: string; level: string };
 
 const levelStyles = {
   info: "bg-secondary/10 text-secondary border-secondary/30",
@@ -36,6 +26,33 @@ const levelStyles = {
 export default function Logs() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [logs, setLogs] = useState<LogRow[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data: rows } = await supabase
+        .from("activity_logs")
+        .select("id,user_id,action,entity,metadata,created_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      const userIds = Array.from(new Set((rows ?? []).map((r) => r.user_id).filter(Boolean) as string[]));
+      const { data: profiles } = userIds.length
+        ? await supabase.from("profiles").select("id,first_name,last_name,email").in("id", userIds)
+        : { data: [] as any[] };
+      const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email || "User"]));
+      setLogs((rows ?? []).map((r) => {
+        const meta = (r.metadata ?? {}) as { category?: string; level?: string };
+        return {
+          id: r.id,
+          category: meta.category ?? "activity",
+          user: r.user_id ? (nameMap.get(r.user_id) ?? "User") : "System",
+          action: r.action,
+          time: new Date(r.created_at).toLocaleString(),
+          level: meta.level ?? "info",
+        };
+      }));
+    })();
+  }, []);
 
   const filteredLogs = logs.filter((log) => {
     const matchesCategory = !selectedCategory || log.category === selectedCategory;
@@ -100,6 +117,9 @@ export default function Logs() {
               </tr>
             </thead>
             <tbody className="divide-y">
+              {filteredLogs.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">No logs found.</td></tr>
+              )}
               {filteredLogs.map((log, index) => {
                 const category = logCategories.find((c) => c.value === log.category);
                 return (

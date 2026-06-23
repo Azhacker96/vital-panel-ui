@@ -1,19 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Filter, Clock, CheckCircle, Eye, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
-const reports = [
-  { id: 1, patient: "John Anderson", type: "Blood Test", date: "2024-01-15", confidence: 94, status: "pending", priority: "normal", aiSummary: "All values within normal range" },
-  { id: 2, patient: "Emily Johnson", type: "X-Ray Analysis", date: "2024-01-15", confidence: 87, status: "under_review", priority: "critical", aiSummary: "Possible abnormality detected in left lung" },
-  { id: 3, patient: "Michael Davis", type: "MRI Scan", date: "2024-01-14", confidence: 91, status: "pending", priority: "normal", aiSummary: "No significant findings" },
-  { id: 4, patient: "Sarah Wilson", type: "ECG Report", date: "2024-01-14", confidence: 78, status: "pending", priority: "critical", aiSummary: "Irregular heart rhythm detected" },
-  { id: 5, patient: "Robert Brown", type: "Lipid Panel", date: "2024-01-13", confidence: 96, status: "completed", priority: "normal", aiSummary: "Cholesterol levels elevated" },
-  { id: 6, patient: "Lisa Martinez", type: "Thyroid Panel", date: "2024-01-13", confidence: 92, status: "completed", priority: "normal", aiSummary: "TSH levels normal" },
-];
+type ReportRow = { id: string; patient: string; type: string; date: string; confidence: number; status: string; priority: string; aiSummary: string };
 
 const statusFilters = [
   { label: "All", value: "all", icon: Filter },
@@ -22,20 +17,57 @@ const statusFilters = [
   { label: "Completed", value: "completed", icon: CheckCircle },
 ];
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   pending: "bg-warning/20 text-warning",
   under_review: "bg-primary/20 text-primary",
   completed: "bg-success/20 text-success",
+  uploaded: "bg-muted text-muted-foreground",
+  ocr: "bg-muted text-muted-foreground",
+  ai_done: "bg-primary/20 text-primary",
+  critical: "bg-destructive/20 text-destructive",
 };
 
-const priorityStyles = {
+const priorityStyles: Record<string, string> = {
   normal: "bg-muted text-muted-foreground",
   critical: "bg-destructive/20 text-destructive",
 };
 
 export default function DoctorAssignedReports() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [reports, setReports] = useState<ReportRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data: assigns } = await supabase.from("report_assignments").select("report_id").eq("doctor_id", user.id);
+      const ids = (assigns ?? []).map((a) => a.report_id);
+      if (ids.length === 0) { setReports([]); setLoading(false); return; }
+      const { data: rows } = await supabase
+        .from("reports")
+        .select("id,title,created_at,status,ai_confidence,ai_summary,is_critical,patient_id")
+        .in("id", ids)
+        .order("created_at", { ascending: false });
+      const patientIds = Array.from(new Set((rows ?? []).map((r) => r.patient_id)));
+      const { data: profiles } = patientIds.length
+        ? await supabase.from("profiles").select("id,first_name,last_name").in("id", patientIds)
+        : { data: [] as any[] };
+      const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient"]));
+      setReports((rows ?? []).map((r) => ({
+        id: r.id,
+        patient: nameMap.get(r.patient_id) ?? "Patient",
+        type: r.title ?? "Report",
+        date: new Date(r.created_at).toLocaleDateString(),
+        confidence: Math.round((r.ai_confidence ?? 0) * 100),
+        status: r.status,
+        priority: r.is_critical ? "critical" : "normal",
+        aiSummary: r.ai_summary ?? "No AI summary yet.",
+      })));
+      setLoading(false);
+    })();
+  }, [user]);
 
   const filteredReports = reports.filter((report) => {
     const matchesSearch = report.patient.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -81,6 +113,10 @@ export default function DoctorAssignedReports() {
 
       {/* Reports List */}
       <div className="space-y-4">
+        {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!loading && filteredReports.length === 0 && (
+          <Card><CardContent className="p-8 text-center text-muted-foreground">No reports match your filters.</CardContent></Card>
+        )}
         {filteredReports.map((report, index) => (
           <Card 
             key={report.id} 

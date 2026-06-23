@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { 
   FileText, 
   CheckCircle, 
@@ -12,8 +13,38 @@ import {
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ChartCard, AIAccuracyChart, ReportsPerDoctorChart, ReportStatusChart } from "@/components/dashboard/ChartCard";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Dashboard() {
+  const [data, setData] = useState({
+    total: 0, completed: 0, pending: 0, rejected: 0,
+    totalPatients: 0, activePatients: 0, highRisk: 0,
+    avgConfidence: 0, dailyProcessing: 0,
+  });
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: reports }, { data: patients }, { count: dailyCount }] = await Promise.all([
+        supabase.from("reports").select("status,is_critical,ai_confidence"),
+        supabase.from("user_roles").select("user_id,role").eq("role", "patient"),
+        supabase.from("reports").select("id", { count: "exact", head: true }).gte("created_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
+      ]);
+      const rs = reports ?? [];
+      const conf = rs.filter((r) => r.ai_confidence != null).map((r) => r.ai_confidence as number);
+      setData({
+        total: rs.length,
+        completed: rs.filter((r) => r.status === "completed").length,
+        pending: rs.filter((r) => ["uploaded", "ocr", "ai_done", "under_review"].includes(r.status)).length,
+        rejected: rs.filter((r) => r.status === "critical" && r.is_critical).length,
+        totalPatients: (patients ?? []).length,
+        activePatients: (patients ?? []).length,
+        highRisk: rs.filter((r) => r.is_critical).length,
+        avgConfidence: conf.length ? Math.round((conf.reduce((a, b) => a + b, 0) / conf.length) * 100) : 0,
+        dailyProcessing: dailyCount ?? 0,
+      });
+    })();
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -26,33 +57,10 @@ export default function Dashboard() {
       <section>
         <h2 className="mb-4 text-lg font-semibold text-foreground">Report Statistics</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Total Reports"
-            value="1,284"
-            icon={FileText}
-            trend={{ value: 12, isPositive: true }}
-          />
-          <StatCard
-            title="Completed Reports"
-            value="892"
-            icon={CheckCircle}
-            variant="success"
-            trend={{ value: 8, isPositive: true }}
-          />
-          <StatCard
-            title="Pending Reports"
-            value="247"
-            icon={Clock}
-            variant="warning"
-            trend={{ value: 3, isPositive: false }}
-          />
-          <StatCard
-            title="Rejected Reports"
-            value="145"
-            icon={XCircle}
-            variant="destructive"
-            trend={{ value: 5, isPositive: false }}
-          />
+          <StatCard title="Total Reports" value={String(data.total)} icon={FileText} />
+          <StatCard title="Completed Reports" value={String(data.completed)} icon={CheckCircle} variant="success" />
+          <StatCard title="Pending Reports" value={String(data.pending)} icon={Clock} variant="warning" />
+          <StatCard title="Critical Reports" value={String(data.rejected)} icon={XCircle} variant="destructive" />
         </div>
       </section>
 
@@ -60,24 +68,9 @@ export default function Dashboard() {
       <section>
         <h2 className="mb-4 text-lg font-semibold text-foreground">Patient Statistics</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            title="Total Patients"
-            value="3,847"
-            icon={Users}
-            trend={{ value: 15, isPositive: true }}
-          />
-          <StatCard
-            title="Active Patients"
-            value="2,156"
-            icon={UserCheck}
-            variant="secondary"
-          />
-          <StatCard
-            title="High-Risk Patients"
-            value="89"
-            icon={AlertTriangle}
-            variant="destructive"
-          />
+          <StatCard title="Total Patients" value={String(data.totalPatients)} icon={Users} />
+          <StatCard title="Active Patients" value={String(data.activePatients)} icon={UserCheck} variant="secondary" />
+          <StatCard title="High-Risk Reports" value={String(data.highRisk)} icon={AlertTriangle} variant="destructive" />
         </div>
       </section>
 
@@ -85,25 +78,9 @@ export default function Dashboard() {
       <section>
         <h2 className="mb-4 text-lg font-semibold text-foreground">AI & System Analytics</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            title="AI Accuracy"
-            value="94.2%"
-            icon={Brain}
-            variant="success"
-            trend={{ value: 2.1, isPositive: true }}
-          />
-          <StatCard
-            title="Confidence Score"
-            value="87.5%"
-            icon={Target}
-            variant="secondary"
-          />
-          <StatCard
-            title="Daily Processing"
-            value="156"
-            icon={TrendingUp}
-            trend={{ value: 18, isPositive: true }}
-          />
+          <StatCard title="AI Accuracy" value={data.avgConfidence ? `${data.avgConfidence}%` : "—"} icon={Brain} variant="success" />
+          <StatCard title="Confidence Score" value={data.avgConfidence ? `${data.avgConfidence}%` : "—"} icon={Target} variant="secondary" />
+          <StatCard title="Daily Processing" value={String(data.dailyProcessing)} icon={TrendingUp} />
         </div>
       </section>
 

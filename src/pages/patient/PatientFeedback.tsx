@@ -1,13 +1,57 @@
 import { MessageSquare, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
-const feedbacks = [
-  { id: 1, doctor: "Dr. Sarah Smith", date: "2024-01-15", report: "Blood Test", comment: "Results look good overall. Consider reducing sugar intake.", followUp: "Schedule follow-up in 3 months" },
-  { id: 2, doctor: "Dr. Michael Brown", date: "2024-01-10", report: "X-Ray", comment: "No abnormalities detected. Lungs are clear.", followUp: null },
-];
+type Row = {
+  id: string;
+  doctor: string;
+  date: string;
+  report: string;
+  comment: string | null;
+  followUp: string | null;
+};
 
 export default function PatientFeedback() {
+  const { user } = useAuth();
+  const [feedbacks, setFeedbacks] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      // Get patient's reports, then reviews
+      const { data: reports } = await supabase
+        .from("reports")
+        .select("id,title")
+        .eq("patient_id", user.id);
+      const ids = (reports ?? []).map((r) => r.id);
+      if (ids.length === 0) { setLoading(false); return; }
+      const { data: reviews } = await supabase
+        .from("doctor_reviews")
+        .select("id,report_id,doctor_id,comments,follow_up,created_at")
+        .in("report_id", ids)
+        .order("created_at", { ascending: false });
+      const doctorIds = Array.from(new Set((reviews ?? []).map((r) => r.doctor_id)));
+      const { data: profiles } = doctorIds.length
+        ? await supabase.from("profiles").select("id,first_name,last_name").in("id", doctorIds)
+        : { data: [] as any[] };
+      const docMap = new Map((profiles ?? []).map((p: any) => [p.id, `Dr. ${[p.first_name, p.last_name].filter(Boolean).join(" ") || "Unknown"}`]));
+      const repMap = new Map((reports ?? []).map((r) => [r.id, r.title ?? "Report"]));
+      setFeedbacks((reviews ?? []).map((r) => ({
+        id: r.id,
+        doctor: docMap.get(r.doctor_id) ?? "Doctor",
+        date: new Date(r.created_at).toLocaleDateString(),
+        report: repMap.get(r.report_id) ?? "Report",
+        comment: r.comments,
+        followUp: r.follow_up,
+      })));
+      setLoading(false);
+    })();
+  }, [user]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -16,6 +60,10 @@ export default function PatientFeedback() {
       </div>
 
       <div className="space-y-4">
+        {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!loading && feedbacks.length === 0 && (
+          <Card><CardContent className="p-8 text-center text-muted-foreground"><MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-50" />No doctor feedback yet.</CardContent></Card>
+        )}
         {feedbacks.map((feedback) => (
           <Card key={feedback.id}>
             <CardContent className="p-5">

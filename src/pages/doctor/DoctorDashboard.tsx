@@ -2,34 +2,73 @@ import { FileText, Clock, AlertTriangle, TrendingUp, Activity, CheckCircle } fro
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
-const stats = [
-  { label: "Assigned Reports", value: "24", icon: FileText, change: "+3 today", color: "text-primary" },
-  { label: "Pending Review", value: "8", icon: Clock, change: "5 urgent", color: "text-warning" },
-  { label: "Critical Cases", value: "3", icon: AlertTriangle, change: "Needs attention", color: "text-destructive" },
-  { label: "Completed Today", value: "12", icon: CheckCircle, change: "+4 from yesterday", color: "text-success" },
-];
-
-const recentReports = [
-  { id: 1, patient: "John Anderson", type: "Blood Test", confidence: 94, status: "pending", priority: "normal" },
-  { id: 2, patient: "Emily Johnson", type: "X-Ray Analysis", confidence: 87, status: "under_review", priority: "critical" },
-  { id: 3, patient: "Michael Davis", type: "MRI Scan", confidence: 91, status: "pending", priority: "normal" },
-  { id: 4, patient: "Sarah Wilson", type: "ECG Report", confidence: 78, status: "pending", priority: "critical" },
-];
-
-const priorityColors = {
+const priorityColors: Record<string, string> = {
   normal: "bg-success/20 text-success border-success/30",
   critical: "bg-destructive/20 text-destructive border-destructive/30",
 };
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   pending: "bg-warning/20 text-warning",
   under_review: "bg-primary/20 text-primary",
   completed: "bg-success/20 text-success",
+  uploaded: "bg-muted text-muted-foreground",
+  ocr: "bg-muted text-muted-foreground",
+  ai_done: "bg-primary/20 text-primary",
+  critical: "bg-destructive/20 text-destructive",
 };
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
+  const [stats, setStats] = useState({ assigned: 0, pending: 0, critical: 0, completedToday: 0 });
+  const [recentReports, setRecentReports] = useState<{ id: string; patient: string; type: string; confidence: number; status: string; priority: string }[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data: assigns } = await supabase
+        .from("report_assignments")
+        .select("report_id,status")
+        .eq("doctor_id", user.id);
+      const reportIds = (assigns ?? []).map((a) => a.report_id);
+      if (reportIds.length === 0) { setStats({ assigned: 0, pending: 0, critical: 0, completedToday: 0 }); return; }
+      const { data: reports } = await supabase
+        .from("reports")
+        .select("id,title,status,is_critical,ai_confidence,patient_id,updated_at,created_at")
+        .in("id", reportIds)
+        .order("created_at", { ascending: false });
+      const rows = reports ?? [];
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      setStats({
+        assigned: rows.length,
+        pending: rows.filter((r) => r.status !== "completed").length,
+        critical: rows.filter((r) => r.is_critical || r.status === "critical").length,
+        completedToday: rows.filter((r) => r.status === "completed" && new Date(r.updated_at) >= todayStart).length,
+      });
+      const patientIds = Array.from(new Set(rows.map((r) => r.patient_id)));
+      const { data: profiles } = patientIds.length
+        ? await supabase.from("profiles").select("id,first_name,last_name").in("id", patientIds)
+        : { data: [] as any[] };
+      const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient"]));
+      setRecentReports(rows.slice(0, 4).map((r) => ({
+        id: r.id,
+        patient: nameMap.get(r.patient_id) ?? "Patient",
+        type: r.title ?? "Report",
+        confidence: Math.round((r.ai_confidence ?? 0) * 100),
+        status: r.status,
+        priority: r.is_critical ? "critical" : "normal",
+      })));
+    })();
+  }, [user]);
+
+  const statCards = [
+    { label: "Assigned Reports", value: String(stats.assigned), icon: FileText, change: "", color: "text-primary" },
+    { label: "Pending Review", value: String(stats.pending), icon: Clock, change: "", color: "text-warning" },
+    { label: "Critical Cases", value: String(stats.critical), icon: AlertTriangle, change: "Needs attention", color: "text-destructive" },
+    { label: "Completed Today", value: String(stats.completedToday), icon: CheckCircle, change: "", color: "text-success" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -41,7 +80,7 @@ export default function DoctorDashboard() {
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => (
+        {statCards.map((stat, index) => (
           <Card key={stat.label} className="animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
@@ -98,6 +137,7 @@ export default function DoctorDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {recentReports.length === 0 && <p className="text-sm text-muted-foreground">No assigned reports yet.</p>}
             {recentReports.map((report) => (
               <div key={report.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                 <div>

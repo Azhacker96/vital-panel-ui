@@ -1,46 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Upload, FileText, Filter, CheckCircle, Clock, XCircle, AlertTriangle, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const filters = [
   { label: "All", value: "all", icon: FileText },
-  { label: "Done", value: "done", icon: CheckCircle },
-  { label: "Pending", value: "pending", icon: Clock },
-  { label: "Under Review", value: "review", icon: Brain },
-  { label: "OCR Rejected", value: "ocr-rejected", icon: XCircle },
+  { label: "Completed", value: "completed", icon: CheckCircle },
+  { label: "Pending", value: "uploaded", icon: Clock },
+  { label: "Under Review", value: "under_review", icon: Brain },
+  { label: "AI Done", value: "ai_done", icon: Brain },
   { label: "Critical", value: "critical", icon: AlertTriangle },
 ];
 
-const reports = [
-  { id: 1, patient: "John Doe", type: "Blood Test", date: "2024-01-15", status: "done", confidence: 95, parameters: [
-    { name: "Hemoglobin", value: "14.5", unit: "g/dL", status: "normal" },
-    { name: "WBC", value: "7,500", unit: "/µL", status: "normal" },
-    { name: "Platelets", value: "150,000", unit: "/µL", status: "low" },
-  ]},
-  { id: 2, patient: "Jane Smith", type: "Liver Panel", date: "2024-01-14", status: "pending", confidence: 87, parameters: [
-    { name: "ALT", value: "85", unit: "U/L", status: "high" },
-    { name: "AST", value: "72", unit: "U/L", status: "high" },
-    { name: "Bilirubin", value: "1.0", unit: "mg/dL", status: "normal" },
-  ]},
-  { id: 3, patient: "Robert Johnson", type: "Kidney Function", date: "2024-01-13", status: "critical", confidence: 92, parameters: [
-    { name: "Creatinine", value: "3.2", unit: "mg/dL", status: "critical" },
-    { name: "BUN", value: "45", unit: "mg/dL", status: "high" },
-    { name: "eGFR", value: "28", unit: "mL/min", status: "critical" },
-  ]},
-  { id: 4, patient: "Emily Davis", type: "Thyroid Panel", date: "2024-01-12", status: "review", confidence: 78, parameters: [
-    { name: "TSH", value: "4.8", unit: "mIU/L", status: "normal" },
-    { name: "T4", value: "1.2", unit: "ng/dL", status: "normal" },
-  ]},
-];
+type Param = { name: string; value: string; unit?: string; status: string };
+type Report = { id: string; patient: string; type: string; date: string; status: string; confidence: number; parameters: Param[] };
 
-const statusStyles = {
-  done: { bg: "bg-success/10", text: "text-success", border: "border-success/30" },
-  pending: { bg: "bg-warning/10", text: "text-warning", border: "border-warning/30" },
-  review: { bg: "bg-secondary/10", text: "text-secondary", border: "border-secondary/30" },
+const statusStyles: Record<string, { bg: string; text: string; border: string }> = {
+  completed: { bg: "bg-success/10", text: "text-success", border: "border-success/30" },
+  uploaded: { bg: "bg-warning/10", text: "text-warning", border: "border-warning/30" },
+  ocr: { bg: "bg-warning/10", text: "text-warning", border: "border-warning/30" },
+  ai_done: { bg: "bg-secondary/10", text: "text-secondary", border: "border-secondary/30" },
+  under_review: { bg: "bg-secondary/10", text: "text-secondary", border: "border-secondary/30" },
   critical: { bg: "bg-destructive/10", text: "text-destructive", border: "border-destructive/30" },
-  "ocr-rejected": { bg: "bg-muted", text: "text-muted-foreground", border: "border-muted" },
 };
 
 const parameterStatusColors = {
@@ -48,11 +32,47 @@ const parameterStatusColors = {
   low: "bg-warning/10 text-warning",
   high: "bg-warning/10 text-warning",
   critical: "bg-destructive/10 text-destructive",
+  abnormal: "bg-destructive/10 text-destructive",
+  borderline: "bg-warning/10 text-warning",
 };
 
 export default function ReportManagement() {
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [isDragging, setIsDragging] = useState(false);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const load = async () => {
+    setLoading(true);
+    const { data: rows } = await supabase
+      .from("reports")
+      .select("id,title,created_at,status,ai_confidence,parameters,patient_id")
+      .order("created_at", { ascending: false });
+    const patientIds = Array.from(new Set((rows ?? []).map((r) => r.patient_id)));
+    const { data: profiles } = patientIds.length
+      ? await supabase.from("profiles").select("id,first_name,last_name").in("id", patientIds)
+      : { data: [] as any[] };
+    const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient"]));
+    setReports((rows ?? []).map((r) => ({
+      id: r.id,
+      patient: nameMap.get(r.patient_id) ?? "Patient",
+      type: r.title ?? "Report",
+      date: new Date(r.created_at).toLocaleDateString(),
+      status: r.status,
+      confidence: Math.round((r.ai_confidence ?? 0) * 100),
+      parameters: Array.isArray(r.parameters) ? (r.parameters as unknown as Param[]) : [],
+    })));
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const approve = async (id: string) => {
+    const { error } = await supabase.from("reports").update({ status: "completed" }).eq("id", id);
+    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
+    else { toast({ title: "Report approved" }); load(); }
+  };
 
   const filteredReports = reports.filter(
     (report) => selectedFilter === "all" || report.status === selectedFilter
@@ -113,8 +133,12 @@ export default function ReportManagement() {
 
       {/* Reports Grid */}
       <div className="grid gap-4 lg:grid-cols-2">
+        {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!loading && filteredReports.length === 0 && (
+          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">No reports found.</div>
+        )}
         {filteredReports.map((report, index) => {
-          const statusStyle = statusStyles[report.status as keyof typeof statusStyles];
+          const statusStyle = statusStyles[report.status] ?? statusStyles.uploaded;
           return (
             <div
               key={report.id}
@@ -138,7 +162,7 @@ export default function ReportManagement() {
               </div>
 
               {/* AI Parameters */}
-              <div className="mt-4 space-y-2">
+              {report.parameters.length > 0 && <div className="mt-4 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Extracted Parameters</p>
                 <div className="grid gap-2 sm:grid-cols-3">
                   {report.parameters.map((param) => (
@@ -156,14 +180,14 @@ export default function ReportManagement() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div>}
 
               {/* Actions */}
               <div className="mt-4 flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1">
                   View Details
                 </Button>
-                <Button size="sm" className="flex-1">
+                <Button size="sm" className="flex-1" onClick={() => approve(report.id)} disabled={report.status === "completed"}>
                   Approve
                 </Button>
               </div>
