@@ -2,39 +2,18 @@ import { AlertTriangle, Clock, User, ArrowUpRight, Phone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
-const criticalCases = [
-  {
-    id: 1,
-    patient: "Emily Johnson",
-    type: "X-Ray Analysis",
-    date: "2024-01-15",
-    confidence: 87,
-    reason: "Possible pneumonia detected in left lower lobe",
-    severity: "high",
-    timeElapsed: "2 hours ago",
-  },
-  {
-    id: 2,
-    patient: "Sarah Wilson",
-    type: "ECG Report",
-    date: "2024-01-14",
-    confidence: 78,
-    reason: "Irregular heart rhythm - possible arrhythmia",
-    severity: "critical",
-    timeElapsed: "6 hours ago",
-  },
-  {
-    id: 3,
-    patient: "Robert Brown",
-    type: "Blood Test",
-    date: "2024-01-13",
-    confidence: 92,
-    reason: "Severely elevated liver enzymes",
-    severity: "high",
-    timeElapsed: "1 day ago",
-  },
-];
+type Case = { id: string; patient: string; type: string; date: string; confidence: number; reason: string; severity: "critical" | "high"; timeElapsed: string };
+
+function timeAgo(iso: string) {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+  return `${Math.floor(diff / 86400)} days ago`;
+}
 
 const severityStyles = {
   critical: "bg-destructive text-destructive-foreground",
@@ -43,6 +22,42 @@ const severityStyles = {
 };
 
 export default function DoctorCriticalCases() {
+  const { user } = useAuth();
+  const [criticalCases, setCases] = useState<Case[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data: assigns } = await supabase.from("report_assignments").select("report_id").eq("doctor_id", user.id);
+      const ids = (assigns ?? []).map((a) => a.report_id);
+      if (ids.length === 0) return;
+      const { data: rows } = await supabase
+        .from("reports")
+        .select("id,title,created_at,ai_confidence,ai_summary,is_critical,status,patient_id")
+        .in("id", ids)
+        .or("is_critical.eq.true,status.eq.critical")
+        .order("created_at", { ascending: false });
+      const patientIds = Array.from(new Set((rows ?? []).map((r) => r.patient_id)));
+      const { data: profiles } = patientIds.length
+        ? await supabase.from("profiles").select("id,first_name,last_name").in("id", patientIds)
+        : { data: [] as any[] };
+      const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient"]));
+      setCases((rows ?? []).map((r) => ({
+        id: r.id,
+        patient: nameMap.get(r.patient_id) ?? "Patient",
+        type: r.title ?? "Report",
+        date: new Date(r.created_at).toLocaleDateString(),
+        confidence: Math.round((r.ai_confidence ?? 0) * 100),
+        reason: r.ai_summary ?? "Critical values detected",
+        severity: r.status === "critical" ? "critical" : "high",
+        timeElapsed: timeAgo(r.created_at),
+      })));
+    })();
+  }, [user]);
+
+  const critCount = criticalCases.filter((c) => c.severity === "critical").length;
+  const highCount = criticalCases.filter((c) => c.severity === "high").length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -66,7 +81,7 @@ export default function DoctorCriticalCases() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Critical</p>
-                <p className="text-3xl font-bold text-destructive">1</p>
+                <p className="text-3xl font-bold text-destructive">{critCount}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-destructive" />
             </div>
@@ -77,7 +92,7 @@ export default function DoctorCriticalCases() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">High Priority</p>
-                <p className="text-3xl font-bold text-warning">2</p>
+                <p className="text-3xl font-bold text-warning">{highCount}</p>
               </div>
               <Clock className="h-8 w-8 text-warning" />
             </div>
@@ -88,7 +103,7 @@ export default function DoctorCriticalCases() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Avg Response Time</p>
-                <p className="text-3xl font-bold text-foreground">18m</p>
+                <p className="text-3xl font-bold text-foreground">—</p>
               </div>
               <Clock className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -98,6 +113,9 @@ export default function DoctorCriticalCases() {
 
       {/* Critical Cases List */}
       <div className="space-y-4">
+        {criticalCases.length === 0 && (
+          <Card><CardContent className="p-8 text-center text-muted-foreground">No critical cases.</CardContent></Card>
+        )}
         {criticalCases.map((caseItem, index) => (
           <Card 
             key={caseItem.id} 
