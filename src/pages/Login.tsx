@@ -8,6 +8,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HeartbeatLogo } from "@/components/HeartbeatLogo";
+import { Seo } from "@/components/Seo";
+import { z } from "zod";
+
+const loginSchema = z.object({
+  email: z.string().trim().email("Invalid email").max(255),
+  password: z.string().min(1, "Password is required").max(128),
+});
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -20,8 +27,13 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      toast({ title: "Invalid input", description: parsed.error.issues[0]?.message, variant: "destructive" });
+      return;
+    }
     setIsLoading(true);
-    const result = await login(email, password);
+    const result = await login(parsed.data.email, parsed.data.password);
     if (result.success) {
       toast({ title: "Welcome back!", description: "You have successfully logged in." });
       navigate("/");
@@ -37,6 +49,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+      <Seo title="Sign In · Self-Learning Medical Analyst" path="/login" />
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto">
