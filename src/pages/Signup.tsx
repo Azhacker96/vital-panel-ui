@@ -8,6 +8,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { Lock, Mail, Eye, EyeOff, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HeartbeatLogo } from "@/components/HeartbeatLogo";
+import { Seo } from "@/components/Seo";
+import { z } from "zod";
+
+const signupSchema = z.object({
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
+  email: z.string().trim().email("Invalid email address").max(255),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+});
 
 export default function Signup() {
   const [name, setName] = useState("");
@@ -22,7 +30,7 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
       toast({
         title: "Password mismatch",
@@ -32,17 +40,18 @@ export default function Signup() {
       return;
     }
 
-    if (password.length < 6) {
+    const parsed = signupSchema.safeParse({ name, email, password });
+    if (!parsed.success) {
       toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters long.",
+        title: "Invalid input",
+        description: parsed.error.issues[0]?.message ?? "Please check your input.",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
-    const result = await signup(email, password, name);
+    const result = await signup(parsed.data.email, parsed.data.password, parsed.data.name);
     if (result.success) {
       toast({
         title: "Account created!",
@@ -61,6 +70,7 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+      <Seo title="Create Account · Self-Learning Medical Analyst" path="/signup" />
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto">
