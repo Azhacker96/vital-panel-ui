@@ -66,12 +66,9 @@ export default function AssignReports() {
   };
 
   const autoAssignRoundRobin = async () => {
-    const active = doctors.filter((d) => d.available);
-    if (active.length === 0 || unassignedReports.length === 0) return;
-    const inserts = unassignedReports.map((r, i) => ({ report_id: r.id, doctor_id: active[i % active.length].id, assigned_by: user?.id, status: "pending" as const }));
-    const { error } = await supabase.from("report_assignments").insert(inserts);
+    const { data, error } = await supabase.functions.invoke("assign-report", { body: { mode: "least_loaded" } });
     if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else { toast({ title: `Auto-assigned ${inserts.length} reports` }); load(); }
+    else { toast({ title: `Auto-assigned ${data?.assigned ?? 0} reports` }); load(); }
   };
 
   return (
