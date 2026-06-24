@@ -50,19 +50,22 @@ export default function PatientUpload() {
       return;
     }
     setUploadProgress(70);
-    const { error: insErr } = await supabase.from('reports').insert({
+    const { data: inserted, error: insErr } = await supabase.from('reports').insert({
       patient_id: user.id,
       uploaded_by: user.id,
       title: selectedFile.name,
       file_path: path,
       file_type: selectedFile.type,
       status: 'uploaded',
-    });
+    }).select('id').single();
     if (insErr) {
       setBusy(false); setUploadProgress(0);
       toast({ title: 'Saving record failed', description: insErr.message, variant: 'destructive' });
       return;
     }
+    setUploadProgress(90);
+    // Kick off AI analysis (don't block UX on failure)
+    supabase.functions.invoke('analyze-report', { body: { report_id: inserted.id } }).catch(() => {});
     setUploadProgress(100);
     setBusy(false);
     toast({ title: 'Upload complete', description: 'Your report has been submitted for analysis.' });
