@@ -37,14 +37,36 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "AI gateway not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const prompt = `You are a medical report analyzer. The report file is "${report.title}" (type: ${report.file_type}). Without the file contents, generate a realistic mock structured analysis as if you'd OCR'd a routine lab report. Respond ONLY with JSON matching this shape: {"summary": string (2-3 sentences), "confidence": number 0-1, "is_critical": boolean, "parameters": [{"name": string, "value": string, "range": string, "status": "normal"|"high"|"low"|"critical"}]}.`;
+    // Download the actual file from storage and pass it to the model
+    let dataUrl: string | null = null;
+    const isImage = (report.file_type ?? "").startsWith("image/");
+    const isPdf = (report.file_type ?? "") === "application/pdf";
+    try {
+      const { data: blob } = await admin.storage.from("medical-reports").download(report.file_path);
+      if (blob) {
+        const buf = new Uint8Array(await blob.arrayBuffer());
+        let bin = "";
+        for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+        const b64 = btoa(bin);
+        dataUrl = `data:${report.file_type};base64,${b64}`;
+      }
+    } catch (_) { /* ignore — fall back to text-only */ }
+
+    const instruction = `You are a medical lab report analyzer. Read the attached report image/PDF carefully and extract EXACTLY the values shown. Do NOT invent or guess any parameters that are not visible. If a value is unreadable, omit it. Respond ONLY with valid JSON of shape: {"summary": string (2-3 sentences describing what the report says), "confidence": number 0-1 (your OCR confidence), "is_critical": boolean (true only if any parameter is in a clinically critical range), "parameters": [{"name": string, "value": string (with units exactly as printed), "range": string (reference range as printed, or "" if absent), "status": "normal"|"high"|"low"|"critical"}]}. If the file is not a medical report, return {"summary":"Not a medical report","confidence":0,"is_critical":false,"parameters":[]}.`;
+
+    const userContent: any[] = [{ type: "text", text: instruction }];
+    if (dataUrl && (isImage || isPdf)) {
+      userContent.push({ type: "image_url", image_url: { url: dataUrl } });
+    } else {
+      userContent.push({ type: "text", text: `File metadata only — title: "${report.title}", type: ${report.file_type}. File contents unavailable.` });
+    }
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LOVABLE_API_KEY}` },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "user", content: prompt }],
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "user", content: userContent }],
         response_format: { type: "json_object" },
       }),
     });
