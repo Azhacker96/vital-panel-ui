@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       }
     } catch (_) { /* ignore — fall back to text-only */ }
 
-    const instruction = `You are a medical lab report analyzer. Read the attached report image/PDF carefully and extract EXACTLY the values shown. Do NOT invent or guess any parameters that are not visible. If a value is unreadable, omit it. Respond ONLY with valid JSON of shape: {"summary": string (2-3 sentences describing what the report says), "confidence": number 0-1 (your OCR confidence), "is_critical": boolean (true only if any parameter is in a clinically critical range), "parameters": [{"name": string, "value": string (with units exactly as printed), "range": string (reference range as printed, or "" if absent), "status": "normal"|"high"|"low"|"critical"}]}. If the file is not a medical report, return {"summary":"Not a medical report","confidence":0,"is_critical":false,"parameters":[]}.`;
+    const instruction = `You are a medical lab report analyzer. Read the attached report image/PDF carefully and extract EXACTLY the values shown. Do NOT invent or guess any parameters that are not visible. If a value is unreadable, omit it. Output raw numbers as printed (no thousands separators, no locale formatting). Respond ONLY with valid JSON of shape: {"summary": string (2-3 sentences describing what the report says), "confidence": number 0-1 (overall OCR confidence), "ocr_text": string (full raw text you read from the document, preserving line breaks), "is_critical": boolean (true only if any parameter is in a clinically critical range), "parameters": [{"name": string, "value": string (with units exactly as printed), "range": string (reference range as printed, or "" if absent), "status": "normal"|"high"|"low"|"critical", "raw_text": string (the exact substring from the document this parameter was read from), "confidence": number 0-1 (per-parameter OCR confidence)}]}. If the file is not a medical report, return {"summary":"Not a medical report","confidence":0,"ocr_text":"","is_critical":false,"parameters":[]}.`;
 
     const userContent: any[] = [{ type: "text", text: instruction }];
     if (dataUrl && (isImage || isPdf)) {
@@ -82,11 +82,19 @@ Deno.serve(async (req) => {
     try { parsed = JSON.parse(aiJson.choices?.[0]?.message?.content ?? "{}"); } catch { parsed = {}; }
 
     const isCritical = !!parsed.is_critical;
+    // Validation: flag low-confidence parameters
+    const params = Array.isArray(parsed.parameters) ? parsed.parameters : [];
+    for (const p of params) {
+      const c = typeof p.confidence === "number" ? p.confidence : (typeof parsed.confidence === "number" ? parsed.confidence : 1);
+      p.flagged = c < 0.7 || !p.raw_text;
+      p.confidence = c;
+    }
     await admin.from("reports").update({
       status: isCritical ? "critical" : "ai_done",
       ai_summary: parsed.summary ?? null,
       ai_confidence: typeof parsed.confidence === "number" ? parsed.confidence : null,
-      parameters: parsed.parameters ?? null,
+      parameters: params,
+      ocr_text: parsed.ocr_text ?? null,
       is_critical: isCritical,
     }).eq("id", report_id);
 
