@@ -18,8 +18,8 @@ const filters = [
   { label: "Critical", value: "critical", icon: AlertTriangle },
 ];
 
-type Param = { name: string; value: string; unit?: string; range?: string; status: string };
-type Report = { id: string; patient: string; type: string; date: string; status: string; confidence: number; parameters: Param[]; summary?: string | null; file_path?: string };
+type Param = { name: string; value: string; unit?: string; range?: string; status: string; raw_text?: string; confidence?: number; flagged?: boolean };
+type Report = { id: string; patient: string; type: string; date: string; status: string; confidence: number; parameters: Param[]; summary?: string | null; file_path?: string; ocr_text?: string | null };
 
 const statusStyles: Record<string, { bg: string; text: string; border: string }> = {
   completed: { bg: "bg-success/10", text: "text-success", border: "border-success/30" },
@@ -56,7 +56,7 @@ export default function ReportManagement() {
     setLoading(true);
     const { data: rows } = await supabase
       .from("reports")
-      .select("id,title,created_at,status,ai_confidence,parameters,patient_id,ai_summary,file_path")
+      .select("id,title,created_at,status,ai_confidence,parameters,patient_id,ai_summary,file_path,ocr_text")
       .order("created_at", { ascending: false });
     const patientIds = Array.from(new Set((rows ?? []).map((r) => r.patient_id)));
     const { data: profiles } = patientIds.length
@@ -73,6 +73,7 @@ export default function ReportManagement() {
       parameters: Array.isArray(r.parameters) ? (r.parameters as unknown as Param[]) : [],
       summary: r.ai_summary,
       file_path: r.file_path,
+      ocr_text: (r as any).ocr_text ?? null,
     })));
     setLoading(false);
   };
@@ -119,6 +120,20 @@ export default function ReportManagement() {
     const { error } = await supabase.from("reports").update({ status: "completed" }).eq("id", id);
     if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
     else { toast({ title: "Report approved" }); load(); }
+  };
+
+  const reanalyze = async (id: string) => {
+    setBusy(true);
+    toast({ title: "Re-analyzing…", description: "AI is reading the file again." });
+    const { error } = await supabase.functions.invoke("analyze-report", { body: { report_id: id } });
+    setBusy(false);
+    if (error) { toast({ title: "Re-analyze failed", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Analysis updated" });
+    await load();
+    const fresh = (await supabase.from("reports").select("id,title,created_at,status,ai_confidence,parameters,ai_summary,file_path,ocr_text,patient_id").eq("id", id).maybeSingle()).data;
+    if (fresh && viewing) {
+      setViewing({ ...viewing, status: fresh.status, confidence: Math.round((fresh.ai_confidence ?? 0) * 100), parameters: Array.isArray(fresh.parameters) ? (fresh.parameters as unknown as Param[]) : [], summary: fresh.ai_summary, ocr_text: fresh.ocr_text });
+    }
   };
 
   const filteredReports = reports.filter(
@@ -263,7 +278,7 @@ export default function ReportManagement() {
       </div>
 
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle className="break-words">{viewing?.type}</DialogTitle>
             <DialogDescription>{viewing?.patient} • {viewing?.date} • Status: {viewing?.status}</DialogDescription>
@@ -274,24 +289,46 @@ export default function ReportManagement() {
                 <div>
                   <p className="text-xs font-medium uppercase text-muted-foreground mb-1">AI Summary</p>
                   <p className="text-sm">{viewing.summary}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Overall confidence: <span className={cn("font-semibold", viewing.confidence < 70 ? "text-destructive" : viewing.confidence < 85 ? "text-warning" : "text-success")}>{viewing.confidence}%</span></p>
                 </div>
               )}
               {viewing.parameters.length > 0 && (
                 <div>
                   <p className="text-xs font-medium uppercase text-muted-foreground mb-2">Parameters</p>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 gap-2">
                     {viewing.parameters.map((p) => (
-                      <div key={p.name} className="flex flex-wrap justify-between gap-2 rounded border p-2 text-sm">
-                        <span className="font-medium">{p.name}</span>
-                        <span>{p.value} <span className="text-xs text-muted-foreground">({p.range}) — {p.status}</span></span>
+                      <div key={p.name} className={cn("rounded border p-3 text-sm space-y-1", p.flagged && "border-warning bg-warning/5")}>
+                        <div className="flex flex-wrap justify-between gap-2">
+                          <span className="font-medium break-words">{p.name}</span>
+                          <span className="break-words text-right">
+                            {p.value} <span className="text-xs text-muted-foreground">({p.range || "—"}) · {p.status}</span>
+                          </span>
+                        </div>
+                        {p.flagged && (
+                          <p className="text-xs text-warning">⚠ Low-confidence{typeof p.confidence === "number" ? ` (${Math.round(p.confidence * 100)}%)` : ""} — verify against source.</p>
+                        )}
+                        {p.raw_text && (
+                          <p className="text-xs text-muted-foreground break-words"><span className="font-medium">Raw:</span> "{p.raw_text}"</p>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-              <Button variant="outline" className="w-full" onClick={() => viewing && viewFile(viewing)}>
-                <FileText className="h-4 w-4 mr-2" /> Open original file
-              </Button>
+              {viewing.ocr_text && (
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground mb-1">Raw OCR Text</p>
+                  <pre className="text-xs bg-muted/40 rounded p-3 whitespace-pre-wrap break-words max-h-48 overflow-auto">{viewing.ocr_text}</pre>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => viewing && viewFile(viewing)}>
+                  <FileText className="h-4 w-4 mr-2" /> Open original file
+                </Button>
+                <Button className="flex-1" disabled={busy} onClick={() => viewing && reanalyze(viewing.id)}>
+                  <Brain className="h-4 w-4 mr-2" /> {busy ? "Re-analyzing…" : "Re-analyze"}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

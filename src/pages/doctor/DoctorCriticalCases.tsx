@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 type Case = { id: string; patient: string; type: string; date: string; confidence: number; reason: string; severity: "critical" | "high"; timeElapsed: string };
 
@@ -23,6 +25,8 @@ const severityStyles = {
 
 export default function DoctorCriticalCases() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [criticalCases, setCases] = useState<Case[]>([]);
 
   useEffect(() => {
@@ -156,15 +160,18 @@ export default function DoctorCriticalCases() {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <Button className="gap-2">
+                  <Button className="gap-2" onClick={() => navigate(`/doctor/review/${caseItem.id}`)}>
                     <ArrowUpRight className="h-4 w-4" />
                     Review Now
                   </Button>
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="outline" className="gap-2" onClick={() => toast({ title: "Contact patient", description: "Opening patient profile…" }) || navigate(`/doctor/patients`)}>
                     <Phone className="h-4 w-4" />
                     Contact Patient
                   </Button>
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={async () => {
+                    await supabase.from("notifications").insert({ user_id: user!.id, type: "alert", title: "Case escalated", body: `Case for ${caseItem.patient} escalated to admin.` });
+                    toast({ title: "Escalated to admin" });
+                  }}>
                     Escalate to Admin
                   </Button>
                 </div>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 type ReportRow = { id: string; patient: string; type: string; date: string; confidence: number; status: string; priority: string; aiSummary: string };
 
@@ -34,6 +35,7 @@ const priorityStyles: Record<string, string> = {
 
 export default function DoctorAssignedReports() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [reports, setReports] = useState<ReportRow[]>([]);
@@ -167,10 +169,10 @@ export default function DoctorAssignedReports() {
               </div>
               
               <div className="mt-4 flex gap-2">
-                <Button size="sm" className="flex-1 sm:flex-none">
+                <Button size="sm" className="flex-1 sm:flex-none" onClick={() => navigate(`/doctor/review/${report.id}`)}>
                   Review Report
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1 sm:flex-none">
+                <Button size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={() => navigate(`/doctor/review/${report.id}`)}>
                   View Details
                 </Button>
               </div>
