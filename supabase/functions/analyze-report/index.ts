@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     await admin.from("notifications").insert({
       user_id: report.patient_id,
       title: isCritical ? "Critical results detected" : "AI analysis ready",
-      message: parsed.summary ?? "Your report has been analyzed.",
+      body: parsed.summary ?? "Your report has been analyzed.",
       type: isCritical ? "critical" : "info",
     });
 
