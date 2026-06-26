@@ -96,6 +96,7 @@ const AppRoutes = () => {
       <Route path="/doctor" element={<ProtectedRoute allowedRoles={['doctor']}><DoctorLayout><DoctorDashboard /></DoctorLayout></ProtectedRoute>} />
       <Route path="/doctor/reports" element={<ProtectedRoute allowedRoles={['doctor']}><DoctorLayout><DoctorAssignedReports /></DoctorLayout></ProtectedRoute>} />
       <Route path="/doctor/review" element={<ProtectedRoute allowedRoles={['doctor']}><DoctorLayout><DoctorReportReview /></DoctorLayout></ProtectedRoute>} />
+      <Route path="/doctor/review/:id" element={<ProtectedRoute allowedRoles={['doctor']}><DoctorLayout><DoctorReportReview /></DoctorLayout></ProtectedRoute>} />
       <Route path="/doctor/patients" element={<ProtectedRoute allowedRoles={['doctor']}><DoctorLayout><DoctorPatients /></DoctorLayout></ProtectedRoute>} />
       <Route path="/doctor/critical" element={<ProtectedRoute allowedRoles={['doctor']}><DoctorLayout><DoctorCriticalCases /></DoctorLayout></ProtectedRoute>} />
       <Route path="/doctor/notifications" element={<ProtectedRoute allowedRoles={['doctor']}><DoctorLayout><DoctorNotifications /></DoctorLayout></ProtectedRoute>} />
