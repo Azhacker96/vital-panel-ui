@@ -18,7 +18,6 @@ const filters = [
   { label: "Critical", value: "critical", icon: AlertTriangle },
 ];
 
-type Param = { name: string; value: string; unit?: string; range?: string; status: string };
 type Param = { name: string; value: string; unit?: string; range?: string; status: string; raw_text?: string; confidence?: number; flagged?: boolean };
 type Report = { id: string; patient: string; type: string; date: string; status: string; confidence: number; parameters: Param[]; summary?: string | null; file_path?: string; ocr_text?: string | null };
 
