@@ -47,6 +47,47 @@ export type Database = {
         }
         Relationships: []
       }
+      analyze_history: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          error: string | null
+          id: string
+          is_critical: boolean
+          parameter_count: number
+          report_id: string
+          status: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          is_critical?: boolean
+          parameter_count?: number
+          report_id: string
+          status: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          is_critical?: boolean
+          parameter_count?: number
+          report_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analyze_history_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doctor_reviews: {
         Row: {
           approved: boolean
