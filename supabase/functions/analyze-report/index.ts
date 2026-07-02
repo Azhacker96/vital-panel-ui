@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
       p.flagged = c < 0.7 || !p.raw_text;
       p.confidence = c;
     }
+    const nextStatus = isCritical ? "critical" : "ai_done";
     await admin.from("reports").update({
       status: isCritical ? "critical" : "ai_done",
       ai_summary: parsed.summary ?? null,
@@ -97,6 +98,14 @@ Deno.serve(async (req) => {
       ocr_text: parsed.ocr_text ?? null,
       is_critical: isCritical,
     }).eq("id", report_id);
+
+    await admin.from("analyze_history").insert({
+      report_id,
+      confidence: typeof parsed.confidence === "number" ? parsed.confidence : null,
+      is_critical: isCritical,
+      status: nextStatus,
+      parameter_count: params.length,
+    });
 
     await admin.from("notifications").insert({
       user_id: report.patient_id,
