@@ -48,6 +48,8 @@ export default function ReportManagement() {
   const [uploadPatient, setUploadPatient] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<Report | null>(null);
+  const [history, setHistory] = useState<{ id: string; created_at: string; confidence: number | null; is_critical: boolean; status: string; parameter_count: number; error: string | null }[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -134,7 +136,24 @@ export default function ReportManagement() {
     if (fresh && viewing) {
       setViewing({ ...viewing, status: fresh.status, confidence: Math.round((fresh.ai_confidence ?? 0) * 100), parameters: Array.isArray(fresh.parameters) ? (fresh.parameters as unknown as Param[]) : [], summary: fresh.ai_summary, ocr_text: fresh.ocr_text });
     }
+    await loadHistory(id);
   };
+
+  const loadHistory = async (reportId: string) => {
+    setHistoryLoading(true);
+    const { data } = await (supabase as any)
+      .from("analyze_history")
+      .select("id,created_at,confidence,is_critical,status,parameter_count,error")
+      .eq("report_id", reportId)
+      .order("created_at", { ascending: false });
+    setHistory(data ?? []);
+    setHistoryLoading(false);
+  };
+
+  useEffect(() => {
+    if (viewing?.id) loadHistory(viewing.id);
+    else setHistory([]);
+  }, [viewing?.id]);
 
   const filteredReports = reports.filter(
     (report) => selectedFilter === "all" || report.status === selectedFilter
@@ -321,6 +340,42 @@ export default function ReportManagement() {
                   <pre className="text-xs bg-muted/40 rounded p-3 whitespace-pre-wrap break-words max-h-48 overflow-auto">{viewing.ocr_text}</pre>
                 </div>
               )}
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground mb-2">Analyze History</p>
+                {historyLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading…</p>
+                ) : history.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No analysis runs recorded yet.</p>
+                ) : (
+                  <ul className="space-y-2 max-h-56 overflow-auto">
+                    {history.map((h, i) => {
+                      const conf = h.confidence != null ? Math.round(Number(h.confidence) * 100) : null;
+                      return (
+                        <li key={h.id} className="rounded border p-2 text-xs flex flex-wrap items-center gap-2 justify-between">
+                          <div className="min-w-0">
+                            <p className="font-medium">
+                              Run #{history.length - i} · {new Date(h.created_at).toLocaleString()}
+                            </p>
+                            <p className="text-muted-foreground break-words">
+                              Status: {h.status} · Params: {h.parameter_count}
+                              {h.is_critical ? " · ⚠ critical" : ""}
+                              {h.error ? ` · error: ${h.error}` : ""}
+                            </p>
+                          </div>
+                          {conf != null && (
+                            <span className={cn(
+                              "rounded-full px-2 py-0.5 font-semibold",
+                              conf < 70 ? "bg-destructive/10 text-destructive" : conf < 85 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"
+                            )}>
+                              {conf}%
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => viewing && viewFile(viewing)}>
                   <FileText className="h-4 w-4 mr-2" /> Open original file
