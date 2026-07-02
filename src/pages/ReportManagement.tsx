@@ -48,6 +48,8 @@ export default function ReportManagement() {
   const [uploadPatient, setUploadPatient] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<Report | null>(null);
+  const [history, setHistory] = useState<{ id: string; created_at: string; confidence: number | null; is_critical: boolean; status: string; parameter_count: number; error: string | null }[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -134,7 +136,24 @@ export default function ReportManagement() {
     if (fresh && viewing) {
       setViewing({ ...viewing, status: fresh.status, confidence: Math.round((fresh.ai_confidence ?? 0) * 100), parameters: Array.isArray(fresh.parameters) ? (fresh.parameters as unknown as Param[]) : [], summary: fresh.ai_summary, ocr_text: fresh.ocr_text });
     }
+    await loadHistory(id);
   };
+
+  const loadHistory = async (reportId: string) => {
+    setHistoryLoading(true);
+    const { data } = await (supabase as any)
+      .from("analyze_history")
+      .select("id,created_at,confidence,is_critical,status,parameter_count,error")
+      .eq("report_id", reportId)
+      .order("created_at", { ascending: false });
+    setHistory(data ?? []);
+    setHistoryLoading(false);
+  };
+
+  useEffect(() => {
+    if (viewing?.id) loadHistory(viewing.id);
+    else setHistory([]);
+  }, [viewing?.id]);
 
   const filteredReports = reports.filter(
     (report) => selectedFilter === "all" || report.status === selectedFilter
