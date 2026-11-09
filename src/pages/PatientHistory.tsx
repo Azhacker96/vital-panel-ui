@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type ReportEntry = { id: string; type: string; date: string; status: string };
 type Patient = { id: string; name: string; age: number | string; gender: string; reports: ReportEntry[] };
@@ -14,6 +15,7 @@ export default function PatientHistory() {
   const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     (async () => {
@@ -56,11 +58,28 @@ export default function PatientHistory() {
           <p className="text-muted-foreground">View and manage patient records</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => {
+            const dups = patients.reduce((n, p) => {
+              const seen = new Set<string>();
+              p.reports.forEach((r) => { const k = `${r.type}|${r.date}`; if (seen.has(k)) n++; else seen.add(k); });
+              return n;
+            }, 0);
+            toast({ title: dups ? `${dups} possible duplicate report(s)` : "No duplicates found", description: dups ? "Same title and date for the same patient." : "All records are unique." });
+          }}>
             <Merge className="h-4 w-4" />
             Merge Duplicates
           </Button>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={async () => {
+            const ids = patients.flatMap((p) => p.reports.map((r) => r.id));
+            if (!ids.length) { toast({ title: "No files to validate" }); return; }
+            const { data } = await supabase.from("reports").select("id,file_path").in("id", ids);
+            let missing = 0;
+            await Promise.all((data ?? []).map(async (r) => {
+              const { error } = await supabase.storage.from("medical-reports").createSignedUrl(r.file_path, 60);
+              if (error) missing++;
+            }));
+            toast({ title: missing ? `${missing} file(s) missing` : "All files valid", description: `${(data ?? []).length} file(s) checked.`, variant: missing ? "destructive" : "default" });
+          }}>
             <FileCheck className="h-4 w-4" />
             Validate Files
           </Button>

@@ -169,8 +169,9 @@ export default function DoctorCriticalCases() {
                     Contact Patient
                   </Button>
                   <Button variant="outline" onClick={async () => {
-                    await supabase.from("notifications").insert({ user_id: user!.id, type: "alert", title: "Case escalated", body: `Case for ${caseItem.patient} escalated to admin.` });
-                    toast({ title: "Escalated to admin" });
+                    const { data: n, error } = await (supabase.rpc as any)("escalate_report", { _report_id: caseItem.id, _note: `Patient: ${caseItem.patient}` });
+                    if (error) { toast({ title: "Escalation failed", description: error.message, variant: "destructive" }); return; }
+                    toast({ title: "Escalated to admin", description: `${n ?? 0} admin(s) notified` });
                   }}>
                     Escalate to Admin
                   </Button>

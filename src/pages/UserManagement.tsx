@@ -14,6 +14,8 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useAuth, UserRole } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -87,6 +89,28 @@ export default function UserManagement() {
     fetchUsers();
   };
 
+  const [edit, setEdit] = useState<{ id: string; first_name: string; last_name: string; phone: string; email: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = async (id: string) => {
+    const { data } = await supabase.from('profiles').select('first_name,last_name,phone,email').eq('id', id).maybeSingle();
+    setEdit({ id, first_name: data?.first_name ?? '', last_name: data?.last_name ?? '', phone: data?.phone ?? '', email: data?.email ?? '' });
+  };
+
+  const saveEdit = async () => {
+    if (!edit) return;
+    if (!edit.first_name.trim()) { toast({ title: 'First name is required', variant: 'destructive' }); return; }
+    setSaving(true);
+    const { error } = await supabase.from('profiles').update({
+      first_name: edit.first_name.trim(), last_name: edit.last_name.trim() || null, phone: edit.phone.trim() || null,
+    }).eq('id', edit.id);
+    setSaving(false);
+    if (error) { toast({ title: 'Failed', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'User updated' });
+    setEdit(null);
+    fetchUsers();
+  };
+
   const handleStatusChange = async (userId: string, status: 'active' | 'inactive') => {
     if (userId === currentUser?.id) {
       toast({ title: "Cannot change own status", variant: "destructive" });
@@ -144,7 +168,7 @@ export default function UserManagement() {
                   <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem className="gap-2"><Edit className="h-4 w-4" />Edit User</DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2" onClick={() => openEdit(user.id)}><Edit className="h-4 w-4" />Edit User</DropdownMenuItem>
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="gap-2"><Shield className="h-4 w-4" />Change Role</DropdownMenuSubTrigger>
                     <DropdownMenuSubContent>
@@ -177,6 +201,26 @@ export default function UserManagement() {
           </div>
         ))}
       </div>
+
+      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Edit User</DialogTitle></DialogHeader>
+          {edit && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>First name</Label><Input value={edit.first_name} onChange={(e) => setEdit({ ...edit, first_name: e.target.value })} maxLength={50} /></div>
+                <div><Label>Last name</Label><Input value={edit.last_name} onChange={(e) => setEdit({ ...edit, last_name: e.target.value })} maxLength={50} /></div>
+              </div>
+              <div><Label>Phone</Label><Input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} maxLength={20} /></div>
+              <div><Label>Email</Label><Input value={edit.email} disabled /></div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEdit(null)}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

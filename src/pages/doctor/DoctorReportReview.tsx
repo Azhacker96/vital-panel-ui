@@ -43,6 +43,7 @@ export default function DoctorReportReview() {
   const { toast } = useToast();
   const [editMode, setEditMode] = useState<number | null>(null);
   const [report, setReport] = useState<any>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [values, setValues] = useState(fallbackReport.extractedValues);
   const [comment, setComment] = useState("");
   const [isCritical, setIsCritical] = useState(false);
@@ -66,10 +67,14 @@ export default function DoctorReportReview() {
       if (!reportId) return;
       const { data: r } = await supabase
         .from("reports")
-        .select("id,title,created_at,ai_confidence,ai_summary,ocr_text,parameters,is_critical,patient_id,status")
+        .select("id,title,created_at,ai_confidence,ai_summary,ocr_text,parameters,is_critical,patient_id,status,file_path,file_type")
         .eq("id", reportId)
         .maybeSingle();
       if (!r) return;
+      if (r.file_path) {
+        const { data: s } = await supabase.storage.from("medical-reports").createSignedUrl(r.file_path, 3600);
+        setFileUrl(s?.signedUrl ?? null);
+      }
       const { data: profile } = await supabase.from("profiles").select("first_name,last_name").eq("id", r.patient_id).maybeSingle();
       const patientName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || "Patient";
       const params = Array.isArray(r.parameters) ? (r.parameters as any[]) : [];
@@ -132,9 +137,9 @@ export default function DoctorReportReview() {
           <p className="text-muted-foreground">Review and validate AI-extracted data</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" disabled={!fileUrl} onClick={() => fileUrl && window.open(fileUrl, "_blank")}>
             <Download className="h-4 w-4" />
-            Download PDF
+            Download Report
           </Button>
         </div>
       </div>
@@ -149,6 +154,15 @@ export default function DoctorReportReview() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {fileUrl ? (
+              <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden border border-border">
+                {report?.file_type?.includes("pdf") || report?.file_path?.toLowerCase().endsWith(".pdf") ? (
+                  <iframe src={fileUrl} title="Original report" className="w-full h-full" />
+                ) : (
+                  <img src={fileUrl} alt={`Original report for ${data.patient}`} className="w-full h-full object-contain" />
+                )}
+              </div>
+            ) : (
             <div className="aspect-[3/4] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
               <div className="text-center p-4">
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
@@ -156,6 +170,7 @@ export default function DoctorReportReview() {
                 <p className="text-xs text-muted-foreground mt-1">{data.patient} - {data.date}</p>
               </div>
             </div>
+            )}
             <div className="mt-4 p-3 bg-muted/30 rounded-lg">
               <p className="text-xs font-medium text-muted-foreground mb-2">OCR Extracted Text:</p>
               <p className="text-sm text-foreground whitespace-pre-line">{(report?.ocr_text) ?? fallbackReport.ocrText}</p>
