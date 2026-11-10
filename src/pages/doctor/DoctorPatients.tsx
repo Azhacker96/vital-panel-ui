@@ -86,8 +86,8 @@ export default function DoctorPatients() {
         <Input placeholder="Search patients..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1 space-y-4">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-1 space-y-4 min-w-0">
           {loading && <p className="text-sm text-muted-foreground">Loading patients…</p>}
           {!loading && filtered.length === 0 && <p className="text-sm text-muted-foreground">No assigned patients yet.</p>}
           {filtered.map((p) => (
@@ -108,7 +108,7 @@ export default function DoctorPatients() {
           ))}
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-w-0">
           {selected ? (
             <div className="space-y-6">
               <Card>
