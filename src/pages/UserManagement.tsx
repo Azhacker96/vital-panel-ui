@@ -150,17 +150,17 @@ export default function UserManagement() {
       {!loading && filteredUsers.length === 0 && (
         <p className="text-sm text-muted-foreground">No users match your filters yet.</p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filteredUsers.map((user, index) => (
-          <div key={user.id} className="rounded-lg border bg-card p-5 card-shadow animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+          <div key={user.id} className="min-w-0 rounded-lg border bg-card p-5 card-shadow animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
                   {user.avatar || user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">{user.name}</h3>
-                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-foreground truncate">{user.name}</h3>
+                  <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                 </div>
               </div>
               <DropdownMenu>
